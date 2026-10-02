@@ -3,7 +3,8 @@
 #include <format>
 #include <iostream>
 #include <print>
-#include <source_location>
+
+#include "source_pos.hpp"
 
 namespace bor {
 
@@ -16,15 +17,15 @@ void panic(int status = EXIT_FAILURE) noexcept;
 template<typename... Args>
 [[noreturn]]
 void panic(
-    std::source_location loc, std::format_string<Args...> fmt, Args &&...args
+    SourcePos loc, std::format_string<Args...> fmt, Args &&...args
 ) noexcept {
     try {
         std::print(
             std::cerr,
             "{}:{}:{}: \x1b[91mborrow violation:\x1b[0m ",
-            loc.file_name(),
+            loc.file(),
             loc.line(),
-            loc.column()
+            loc.col()
         );
         std::println(std::cerr, fmt, args...);
         // NOLINTNEXTLINE(bugprone-empty-catch)
@@ -37,13 +38,10 @@ void panic(
 /// exits with erroneus status code.
 template<typename... Args>
 void panic_if(
-    bool cond,
-    std::source_location loc,
-    std::format_string<Args...> fmt,
-    Args &&...args
+    bool cond, SourcePos loc, std::format_string<Args...> fmt, Args &&...args
 ) noexcept {
     if (cond) {
-        panic(loc, fmt, args...);
+        panic(loc.inc(), fmt, args...);
     }
 }
 

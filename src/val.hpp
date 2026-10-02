@@ -1,7 +1,6 @@
 #pragma once
 
 #include <format>
-#include <source_location>
 #include <type_traits>
 #include <utility>
 
@@ -27,20 +26,18 @@ public:
     /// Move constructor of the value.
     ///
     /// Panics if there is any reference to the value.
-    Val(Val<T> &&other,
-        std::source_location loc = std::source_location::current()) noexcept
+    Val(Val<T> &&other, SourcePos loc = SourcePos::current()) noexcept
         requires(std::is_move_constructible_v<T>)
-        : _v(std::move(other._v), loc) { }
+        : _v(std::move(other._v), loc.inc()) { }
 
     /// Copy constructor for the value.
     ///
     /// Panics if there is any mutable reference to the value.
     constexpr Val(
-        const Val<T> &other,
-        std::source_location loc = std::source_location::current()
+        const Val<T> &other, SourcePos loc = SourcePos::current()
     ) noexcept
         requires(std::is_copy_constructible_v<T>)
-        : _v(other._v, loc) { }
+        : _v(other._v, loc.inc()) { }
 
     /// Construct the value.
     template<typename... Args>
@@ -54,7 +51,7 @@ public:
     Val<T> &operator=(Val<T> &&other) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        set(std::move(other));
+        set(std::move(other), SourcePos::caller2());
         return *this;
     }
 
@@ -65,7 +62,7 @@ public:
     Val<T> &operator=(const Val<T> &other) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        set(other);
+        set(other, SourcePos::caller2());
         return *this;
     }
 
@@ -75,7 +72,7 @@ public:
     Val<T> &operator=(T &&other) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        set(std::move(other));
+        set(std::move(other), SourcePos::caller2());
         return *this;
     }
 
@@ -85,20 +82,17 @@ public:
     Val<T> &operator=(const T &other) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        set(other);
+        set(other, SourcePos::caller2());
         return *this;
     }
 
     /// Move the value.
     ///
     /// Panics if there is any reference to this or the other value.
-    void set(
-        Val<T> &&other,
-        std::source_location loc = std::source_location::current()
-    ) noexcept
+    void set(Val<T> &&other, SourcePos loc = SourcePos::current()) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        _v.set(std::move(other._v), loc);
+        _v.set(std::move(other._v), loc.inc());
     }
 
     /// Copy the value.
@@ -106,55 +100,45 @@ public:
     /// Panics if there is any reference to this value or any mutable reference
     /// to the other value.
     void set(
-        const Val<T> &other,
-        std::source_location loc = std::source_location::current()
+        const Val<T> &other, SourcePos loc = SourcePos::current()
     ) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        _v.set(other._v, loc);
+        _v.set(other._v, loc.inc());
     }
 
     /// Move the value.
     ///
     /// Panics if there is any reference to this value.
-    void set(
-        T &&other, std::source_location loc = std::source_location::current()
-    ) noexcept
+    void set(T &&other, SourcePos loc = SourcePos::current()) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        get(loc) = std::move(other);
+        get(loc.inc()) = std::move(other);
     }
 
     /// Copy the value.
     ///
     /// Panics if there is any reference to this value.
-    void set(
-        const T &other,
-        std::source_location loc = std::source_location::current()
-    ) noexcept
+    void set(const T &other, SourcePos loc = SourcePos::current()) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        get(loc) = other;
+        get(loc.inc()) = other;
     }
 
     /// Get the value immutably.
     ///
     /// Panics if there is any mutable reference to this value.
     [[nodiscard]]
-    const T &get(
-        std::source_location loc = std::source_location::current()
-    ) const noexcept {
-        _v.cnts.check_read(loc);
+    const T &get(SourcePos loc = SourcePos::current()) const noexcept {
+        _v.cnts.check_read(loc.inc());
         return _v.value;
     }
 
     /// Get the value mutably.
     ///
     /// Panics if there is any reference to the value.
-    T &get_mut(
-        std::source_location loc = std::source_location::current()
-    ) noexcept {
-        _v.cnts.check_write(loc);
+    T &get_mut(SourcePos loc = SourcePos::current()) noexcept {
+        _v.cnts.check_write(loc.inc());
         return _v.value;
     }
 
@@ -164,32 +148,33 @@ public:
     operator T() noexcept
         requires(std::is_copy_constructible_v<T>)
     {
-        _v.cnts.check_read(std::source_location::current());
+        _v.cnts.check_read(SourcePos::caller2());
         return _v.value;
     }
 
     /// Get reference to the value.
     ///
     /// Panics if there is any mutable refererence to the value.
-    Ref<T> ref(
-        std::source_location loc = std::source_location::current()
-    ) noexcept {
-        return { _v, loc };
+    Ref<T> ref(SourcePos loc = SourcePos::current()) noexcept {
+        return { _v, loc.inc() };
     }
 
     /// Get mutable reference to the value.
     ///
     /// Panics if there is any reference to the value.
-    RefMut<T> ref_mut(
-        std::source_location loc = std::source_location::current()
-    ) noexcept {
-        return { _v, loc };
+    RefMut<T> ref_mut(SourcePos loc = SourcePos::current()) noexcept {
+        return { _v, loc.inc() };
     }
 
     /// Get reference to the value.
     ///
     /// Panics if there is any reference to the value.
-    Ref<T> operator&() noexcept { return ref(); }
+    Ref<T> operator&() noexcept { return ref(SourcePos::caller2()); }
+
+    /// Destroy the value.
+    ///
+    /// Panics if there is any reference to the value.
+    ~Val() { _v.cnts.check_destroy(SourcePos::caller2()); }
 };
 
 } // namespace bor

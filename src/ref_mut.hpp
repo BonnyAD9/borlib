@@ -1,6 +1,5 @@
 #pragma once
 
-#include <source_location>
 #include <type_traits>
 
 #include "ref.hpp"
@@ -28,22 +27,23 @@ public:
     /// the mutable reference is valid and modifies the counters accordingly.
     ///
     /// Panics if creating the mutable reference is invalid.
-    RefMut(ValInner<T> &val, std::source_location loc) noexcept : _r(&val) {
-        val.cnts.create_ref_mut(loc);
+    RefMut(ValInner<T> &val, SourcePos loc) noexcept : _r(&val) {
+        val.cnts.create_ref_mut(loc.inc());
     }
 
     /// Move constructor for mutable referece. The other reference is made
     /// uninitialized.
     ///
     /// Panics if the other reference is uninitialized or currently borrowed.
-    RefMut(
-        RefMut<T> &&other,
-        std::source_location loc = std::source_location::current()
-    ) noexcept :
+    RefMut(RefMut<T> &&other, SourcePos loc = SourcePos::current()) noexcept :
         _r(other._r) {
-        panic_if(!_r, loc, "Cannot move uninitialized mutable reference.");
         panic_if(
-            other._borrowed, loc, "Cannot move borroed mutable reference."
+            !_r, loc.inc(), "Cannot move uninitialized mutable reference."
+        );
+        panic_if(
+            other._borrowed,
+            loc.inc(),
+            "Cannot move borroed mutable reference."
         );
         other._r = nullptr;
     }
@@ -58,12 +58,12 @@ public:
     RefMut &operator=(RefMut<T> &&other) noexcept {
         panic_if(
             !other._r,
-            std::source_location::current(),
+            SourcePos::caller2(),
             "Cannot move uninitialized mutable reference."
         );
         panic_if(
             other._borrowed,
-            std::source_location::current(),
+            SourcePos::caller2(),
             "Cannot move borroed mutable reference."
         );
         if (_r) {
@@ -82,9 +82,13 @@ public:
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
     [[nodiscard]]
-    T &get(std::source_location loc = std::source_location::current()) const {
-        panic_if(!_r, loc, "Cannot access uninitialized mutable reference.");
-        panic_if(_borrowed, loc, "Cannot access borrowed mutable reference.");
+    T &get(SourcePos loc = SourcePos::current()) const {
+        panic_if(
+            !_r, loc.inc(), "Cannot access uninitialized mutable reference."
+        );
+        panic_if(
+            _borrowed, loc.inc(), "Cannot access borrowed mutable reference."
+        );
         return _r->value;
     }
 
@@ -101,11 +105,13 @@ public:
     /// Transform this reference into immutable reference.
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
-    Ref<T> into_ref(
-        std::source_location loc = std::source_location::current()
-    ) {
-        panic_if(!_r, loc, "Cannot transfer uninitialized mutable reference.");
-        panic_if(_borrowed, loc, "Cannot access borrowed mutable reference.");
+    Ref<T> into_ref(SourcePos loc = SourcePos::current()) {
+        panic_if(
+            !_r, loc.inc(), "Cannot transfer uninitialized mutable reference."
+        );
+        panic_if(
+            _borrowed, loc.inc(), "Cannot access borrowed mutable reference."
+        );
         _r->cnts.transfer_mut_to_ref();
         auto r = _r;
         _r = nullptr;
@@ -115,21 +121,27 @@ public:
     /// Implicit conversion of rvalue of this reference to immutable reference.
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
-    operator Ref<T>(this RefMut<T> &&self) { return self.into_ref(); }
+    operator Ref<T>(this RefMut<T> &&self) {
+        return self.into_ref(SourcePos::caller2());
+    }
 
     /// Borrow the reference for the duration of the given closure.
     ///
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
-    R borrow(F f, std::source_location loc = std::source_location::current())
+    R borrow(F f, SourcePos loc = SourcePos::current())
         requires(
             std::is_invocable_r_v<R, F, Ref<T>> &&
             std::is_move_constructible_v<R>
         )
     {
-        panic_if(_borrowed, loc, "Cannot borrow borrowed mutable reference.");
-        panic_if(!_r, loc, "Cannot borrow uninitialized mutable reference.");
+        panic_if(
+            _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
+        );
+        panic_if(
+            !_r, loc.inc(), "Cannot borrow uninitialized mutable reference."
+        );
         auto cnt = _r->cnts.ref_cnt();
         _r->cnts.add_ref();
         _borrowed = true;
@@ -137,7 +149,7 @@ public:
         _borrowed = false;
         panic_if(
             _r->cnts.ref_cnt() != cnt,
-            loc,
+            loc.inc(),
             "Borrowed reference escaped its lifetime."
         );
         return res;
@@ -148,13 +160,15 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename F>
-    void borrow(
-        F f, std::source_location loc = std::source_location::current()
-    )
+    void borrow(F f, SourcePos loc = SourcePos::current())
         requires(std::is_invocable_v<F, Ref<T>>)
     {
-        panic_if(_borrowed, loc, "Cannot borrow borrowed mutable reference.");
-        panic_if(!_r, loc, "Cannot borrow uninitialized mutable reference.");
+        panic_if(
+            _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
+        );
+        panic_if(
+            !_r, loc.inc(), "Cannot borrow uninitialized mutable reference."
+        );
         auto cnt = _r->cnts.ref_cnt();
         _r->cnts.add_ref();
         _borrowed = true;
@@ -162,7 +176,7 @@ public:
         _borrowed = false;
         panic_if(
             _r->cnts.ref_cnt() != cnt,
-            loc,
+            loc.inc(),
             "Borrowed reference escaped its lifetime."
         );
     }
@@ -172,18 +186,20 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
-    void borrow_mut(
-        F f, std::source_location loc = std::source_location::current()
-    )
+    void borrow_mut(F f, SourcePos loc = SourcePos::current())
         requires(
             std::is_invocable_r_v<R, F, RefMut<T>> &&
             std::is_move_constructible_v<R>
         )
     {
         panic_if(
-            !_r, loc, "Cannot mutably borrow uninitialized mutable reference."
+            !_r,
+            loc.inc(),
+            "Cannot mutably borrow uninitialized mutable reference."
         );
-        panic_if(_borrowed, loc, "Cannot borrow borrowed mutable reference.");
+        panic_if(
+            _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
+        );
         auto cnt = _r->cnts.ref_cnt();
         _r->cnts.add_ref();
         _borrowed = true;
@@ -191,7 +207,7 @@ public:
         _borrowed = false;
         panic_if(
             _r->cnts.ref_cnt() != cnt,
-            loc,
+            loc.inc(),
             "Borrowed mutable reference escaped its lifetime."
         );
         return r;
@@ -202,15 +218,17 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename F>
-    void borrow_mut(
-        F f, std::source_location loc = std::source_location::current()
-    )
+    void borrow_mut(F f, SourcePos loc = SourcePos::current())
         requires(std::is_invocable_v<F, RefMut<T>>)
     {
         panic_if(
-            !_r, loc, "Cannot mutably borrow uninitialized mutable reference."
+            !_r,
+            loc.inc(),
+            "Cannot mutably borrow uninitialized mutable reference."
         );
-        panic_if(_borrowed, loc, "Cannot borrow borrowed mutable reference.");
+        panic_if(
+            _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
+        );
         auto cnt = _r->cnts.ref_cnt();
         _r->cnts.add_ref();
         _borrowed = true;
@@ -218,7 +236,7 @@ public:
         _borrowed = false;
         panic_if(
             _r->cnts.ref_cnt() != cnt,
-            loc,
+            loc.inc(),
             "Borrowed mutable reference escaped its lifetime."
         );
     }

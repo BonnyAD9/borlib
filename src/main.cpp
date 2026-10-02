@@ -43,8 +43,7 @@ static void test_dangling() {
         Val<int> n = 5;
         ref = &n;
         std::println("Value goes out of scope.");
-        // borrow violation: Cannot destroy value that is borrowed.
-    }
+    } // borrow violation: Cannot destroy value that is borrowed.
 
     std::println("I will now print ref.");
     std::println("{}", *ref);
@@ -102,12 +101,26 @@ static void test_borrow_infiltrate() {
     });
 }
 
+static void test_multi_borrow2() {
+    Val<int> n = 5;
+
+    std::println("Creating mutable reference.");
+    auto mref = n.ref_mut();
+
+    std::println("Creating immutable reference.");
+    auto ref = &n;
+
+    std::println("Accessing value.");
+    std::println("{}", ref);
+}
+
 static void tryout() {
     test_borrow_escape();
+    test_multi_borrow2();
+    test_dangling();
     test_borrow_infiltrate();
     test_read_mut();
     test_multi_borrow();
-    test_dangling();
 }
 
 } // namespace bor

@@ -12,7 +12,7 @@ file(GLOB borlib_files CONFIGURE_DEPENDS "src/**/*.cpp" "src/*.cpp")
 target_sources(borlib PRIVATE ${borlib_files})
 
 # Uncomment to add link library
-# target_link_libraries(borlib PRIVATE #[[ link library here ]])
+target_link_libraries(borlib PRIVATE -lstdc++exp)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_CXX_FLAGS

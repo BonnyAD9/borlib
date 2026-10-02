@@ -5,6 +5,7 @@
 #include <source_location>
 
 #include "err.hpp"
+
 namespace bor {
 
 /// Internal type for reference counting of borlib references.
@@ -36,10 +37,8 @@ public:
     ///
     /// Panics if the move out of `of` is not valid.
     [[nodiscard]]
-    static Counters move_out(
-        const Counters &of, std::source_location loc
-    ) noexcept {
-        of.check_move_out(loc);
+    static Counters move_out(const Counters &of, SourcePos loc) noexcept {
+        of.check_move_out(loc.inc());
         return {};
     }
 
@@ -48,10 +47,8 @@ public:
     ///
     /// Panics if the copy of `of` is not valud.
     [[nodiscard]]
-    static Counters copy_out(
-        const Counters &of, std::source_location loc
-    ) noexcept {
-        of.check_copy_out(loc);
+    static Counters copy_out(const Counters &of, SourcePos loc) noexcept {
+        of.check_copy_out(loc.inc());
         return {};
     }
 
@@ -74,49 +71,58 @@ public:
     /// Checks if move of the value is valid.
     ///
     /// Panics if moving the valus is not valid.
-    void check_move_out(std::source_location loc) const noexcept {
-        panic_if(any_ref(), loc, "Cannot move out of value that is borrowed.");
+    void check_move_out(SourcePos loc) const noexcept {
+        panic_if(
+            any_ref(), loc.inc(), "Cannot move out of value that is borrowed."
+        );
     }
 
     /// Checks if copy of the value is valid.
     ///
     /// Panics if copying the valus is not valid.
-    void check_copy_out(std::source_location loc) const noexcept {
-        panic_if(is_mut(), loc, "Cannot copy value that is mutably borrowed.");
+    void check_copy_out(SourcePos loc) const noexcept {
+        panic_if(
+            is_mut(), loc.inc(), "Cannot copy value that is mutably borrowed."
+        );
     }
 
     /// Checks if writing the value is valid.
     ///
     /// Panics if writing the valus is not valid.
-    void check_write(std::source_location loc) const noexcept {
-        panic_if(is_mut(), loc, "Cannot write to value that is borrowed.");
+    void check_write(SourcePos loc) const noexcept {
+        panic_if(
+            is_mut(), loc.inc(), "Cannot write to value that is borrowed."
+        );
     }
 
     /// Checks if reading the value is valid.
     ///
     /// Panics if reading the valus is not valid.
-    void check_read(std::source_location loc) const noexcept {
+    void check_read(SourcePos loc) const noexcept {
         panic_if(
-            any_ref(), loc, "Cannot read value that is mutably borrowed."
+            any_ref(), loc.inc(), "Cannot read value that is mutably borrowed."
         );
     }
 
     /// Checks if destroying the value is valid.
     ///
     /// Panics if destroying the value is not valid.
-    void check_destroy(std::source_location loc) const noexcept {
-        panic_if(any_ref(), loc, "Cannot destroy value that is borrowed.");
+    void check_destroy(SourcePos loc) const noexcept {
+        panic_if(
+            any_ref(), loc.inc(), "Cannot destroy value that is borrowed."
+        );
     }
 
     /// Checks if creating new reference is valid and updates the counters.
     ///
     /// Panics if creating new reference is not valid.
-    void create_ref(std::source_location loc) noexcept {
+    void create_ref(SourcePos loc) noexcept {
         _ref.fetch_add(1, std::memory_order_acquire);
         if (_mut.load(std::memory_order_acquire)) {
             _ref.fetch_sub(1, std::memory_order_release);
             panic(
-                loc, "Cannot borrow value that is already borrowed mutably."
+                loc.inc(),
+                "Cannot borrow value that is already borrowed mutably."
             );
         }
     }
@@ -132,15 +138,15 @@ public:
     /// Checks if creating mutable reference is valid and updates the counters.
     ///
     /// Panics if creating new mutable reference is not valid.
-    void create_ref_mut(std::source_location loc) noexcept {
+    void create_ref_mut(SourcePos loc) noexcept {
         panic_if(
             _mut.exchange(true, std::memory_order_acquire),
-            loc,
+            loc.inc(),
             "Cannot mutably borrow value that is already mutably borrowed."
         );
         panic_if(
             _ref.fetch_add(1) > 0,
-            loc,
+            loc.inc(),
             "Cannot mutably borrow value that is already borrowed."
         );
     }

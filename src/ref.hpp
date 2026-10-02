@@ -1,7 +1,5 @@
 #pragma once
 
-#include <source_location>
-
 #include "err.hpp"
 #include "val_inner.hpp"
 
@@ -31,28 +29,26 @@ public:
     /// the counters.
     ///
     /// Panics if creating the reference is not valid.
-    Ref(ValInner<T> &val, std::source_location loc) noexcept : _r(&val) {
-        val.cnts.create_ref(loc);
+    Ref(ValInner<T> &val, SourcePos loc) noexcept : _r(&val) {
+        val.cnts.create_ref(loc.inc());
     }
 
     /// Move constructor of reference. The other reference will be made
     /// uninitialized.
     ///
     /// Panics if the other reference is uninitialized.
-    Ref(Ref<T> &&other,
-        std::source_location loc = std::source_location::current()) noexcept :
+    Ref(Ref<T> &&other, SourcePos loc = SourcePos::current()) noexcept :
         _r(other._r) {
-        panic_if(!_r, loc, "Cannot move uninitialized reference.");
+        panic_if(!_r, loc.inc(), "Cannot move uninitialized reference.");
         other._r = nullptr;
     }
 
     /// Copy constructor of reference.
     ///
     /// Panics if the other reference is uninitialized.
-    Ref(const Ref<T> &other,
-        std::source_location loc = std::source_location::current()) noexcept :
+    Ref(const Ref<T> &other, SourcePos loc = SourcePos::current()) noexcept :
         _r(other._r) {
-        panic_if(!_r, loc, "Cannot copy uninitialized reference.");
+        panic_if(!_r, loc.inc(), "Cannot copy uninitialized reference.");
         _r->cnts.add_ref();
     }
 
@@ -63,7 +59,7 @@ public:
     Ref<T> &operator=(Ref<T> &&other) noexcept {
         panic_if(
             !other._r,
-            std::source_location::current(),
+            SourcePos::caller2(),
             "Cannot move uninitialized reference."
         );
         if (_r) {
@@ -80,7 +76,7 @@ public:
     Ref<T> &operator=(const Ref<T> &other) noexcept {
         panic_if(
             !other._r,
-            std::source_location::current(),
+            SourcePos::caller2(),
             "Cannot copy uninitialized reference."
         );
         if (this == &other) {
@@ -98,22 +94,24 @@ public:
     ///
     /// Panics if the reference is uninitialized.
     [[nodiscard]]
-    const T &get(
-        std::source_location loc = std::source_location::current()
-    ) const noexcept {
-        panic_if(!_r, loc, "Cannot access uninitialized reference.");
+    const T &get(SourcePos loc = SourcePos::current()) const noexcept {
+        panic_if(!_r, loc.inc(), "Cannot access uninitialized reference.");
         return _r->value;
     }
 
     /// Get the referenced value.
     ///
     /// Panics if the reference is uninitialized.
-    const T &operator*() const noexcept { return get(); }
+    const T &operator*() const noexcept {
+        return get(SourcePos::caller2().inc());
+    }
 
     /// Access member of the referenced value.
     ///
     /// Panics if the reference is uninitialized.
-    const T *operator->() const noexcept { return &get(); }
+    const T *operator->() const noexcept {
+        return &get(SourcePos::caller2().inc());
+    }
 
     /// Destroy the reference.
     ~Ref() noexcept {
