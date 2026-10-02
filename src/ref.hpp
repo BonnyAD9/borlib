@@ -9,20 +9,36 @@ namespace bor {
 
 template<typename T> class RefMut;
 
+/// Safe reference.
+///
+/// This reference checks that it is valid and that noone can modify the
+/// referenced value while the reference exists.
 template<typename T> class Ref {
     friend RefMut<T>;
 
     ValInner<T> *_r{ nullptr };
 
-    Ref(ValInner<T> *val) : _r(val) { }
+    constexpr Ref(ValInner<T> *val) noexcept : _r(val) { }
 
 public:
-    Ref() = default;
+    /// Create uninitialized reference.
+    ///
+    /// Any operation other that assigning value or destroying it will panic.
+    constexpr Ref() = default;
 
-    Ref(ValInner<T> &val, std::source_location loc) : _r(&val) {
+    /// Internal method for constructing reference from innner value
+    /// representation. Checks that creating the reference is valid and updates
+    /// the counters.
+    ///
+    /// Panics if creating the reference is not valid.
+    Ref(ValInner<T> &val, std::source_location loc) noexcept : _r(&val) {
         val.cnts.create_ref(loc);
     }
 
+    /// Move constructor of reference. The other reference will be made
+    /// uninitialized.
+    ///
+    /// Panics if the other reference is uninitialized.
     Ref(Ref<T> &&other,
         std::source_location loc = std::source_location::current()) noexcept :
         _r(other._r) {
@@ -30,6 +46,9 @@ public:
         other._r = nullptr;
     }
 
+    /// Copy constructor of reference.
+    ///
+    /// Panics if the other reference is uninitialized.
     Ref(const Ref<T> &other,
         std::source_location loc = std::source_location::current()) noexcept :
         _r(other._r) {
@@ -37,6 +56,10 @@ public:
         _r->cnts.add_ref();
     }
 
+    /// Move assignment operator of reference. The other reference will be made
+    /// uninitialized.
+    ///
+    /// Panics if the other reference is uninitialized.
     Ref<T> &operator=(Ref<T> &&other) noexcept {
         panic_if(
             !other._r,
@@ -51,6 +74,9 @@ public:
         return *this;
     }
 
+    /// Copy assignment operator for reference.
+    ///
+    /// Panics if the other reference is uninitialized.
     Ref<T> &operator=(const Ref<T> &other) noexcept {
         panic_if(
             !other._r,
@@ -68,26 +94,29 @@ public:
         return *this;
     }
 
+    /// Get the referenced value.
+    ///
+    /// Panics if the reference is uninitialized.
     [[nodiscard]]
     const T &get(
         std::source_location loc = std::source_location::current()
-    ) const {
+    ) const noexcept {
         panic_if(!_r, loc, "Cannot access uninitialized reference.");
         return _r->value;
     }
 
-    const T &operator*() const { return get(); }
+    /// Get the referenced value.
+    ///
+    /// Panics if the reference is uninitialized.
+    const T &operator*() const noexcept { return get(); }
 
-    const T *operator->() const { return &get(); }
+    /// Access member of the referenced value.
+    ///
+    /// Panics if the reference is uninitialized.
+    const T *operator->() const noexcept { return &get(); }
 
-    [[nodiscard]]
-    Ref<T> ref(
-        std::source_location loc = std::source_location::current()
-    ) const {
-        return { *this, loc };
-    }
-
-    ~Ref() {
+    /// Destroy the reference.
+    ~Ref() noexcept {
         if (_r) {
             _r->cnts.remove_ref();
             _r = nullptr;

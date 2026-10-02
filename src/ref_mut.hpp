@@ -8,19 +8,34 @@
 
 namespace bor {
 
+/// Mutable safe reference.
+///
+/// This reference checks that noone else can access the referenced value.
 template<typename T> class RefMut {
     ValInner<T> *_r{ nullptr };
     bool _borrowed = false;
 
-    RefMut(ValInner<T> *val) : _r(val) { }
+    constexpr RefMut(ValInner<T> *val) noexcept : _r(val) { }
 
 public:
-    RefMut() = default;
+    /// Constructs uninitialized reference.
+    ///
+    /// Any operation other than assigning to this reference or destroying it
+    /// will result in panic.
+    constexpr RefMut() = default;
 
-    RefMut(ValInner<T> &val, std::source_location loc) : _r(&val) {
+    /// Inner constructor for the mutable reference. Checks that constructing
+    /// the mutable reference is valid and modifies the counters accordingly.
+    ///
+    /// Panics if creating the mutable reference is invalid.
+    RefMut(ValInner<T> &val, std::source_location loc) noexcept : _r(&val) {
         val.cnts.create_ref_mut(loc);
     }
 
+    /// Move constructor for mutable referece. The other reference is made
+    /// uninitialized.
+    ///
+    /// Panics if the other reference is uninitialized or currently borrowed.
     RefMut(
         RefMut<T> &&other,
         std::source_location loc = std::source_location::current()
@@ -36,6 +51,10 @@ public:
     RefMut(const RefMut<T> &) = delete ("Mutable reference cannot be copied. "
                                         "Consider using RefMut::borrow_mut.");
 
+    /// Move assignment operator for the mutable reference. This makes the
+    /// other reference uninitialized.
+    ///
+    /// Panics if the other reference is uninitialized or currently borrowed.
     RefMut &operator=(RefMut<T> &&other) noexcept {
         panic_if(
             !other._r,
@@ -59,6 +78,9 @@ public:
         delete ("Mutable reference cannot be copied. Consider using "
                 "RefMut::borrow_mut.");
 
+    /// Get access to the underlaying value.
+    ///
+    /// Panics if the reference is uninitialized or currently borrowed.
     [[nodiscard]]
     T &get(std::source_location loc = std::source_location::current()) const {
         panic_if(!_r, loc, "Cannot access uninitialized mutable reference.");
@@ -66,10 +88,19 @@ public:
         return _r->value;
     }
 
+    /// Get access to the underlaying value.
+    ///
+    /// Panics if the reference is uninitialized or currently borrowed.
     T &operator*() const { return get(); }
 
+    /// Access member of the underlaying value.
+    ///
+    /// Panics if the reference is uninitialized or currently borrowed.
     T *operator->() const { return &get(); }
 
+    /// Transform this reference into immutable reference.
+    ///
+    /// Panics if the reference is uninitialized or currently borrowed.
     Ref<T> into_ref(
         std::source_location loc = std::source_location::current()
     ) {
@@ -81,8 +112,15 @@ public:
         return { r };
     }
 
+    /// Implicit conversion of rvalue of this reference to immutable reference.
+    ///
+    /// Panics if the reference is uninitialized or currently borrowed.
     operator Ref<T>(this RefMut<T> &&self) { return self.into_ref(); }
 
+    /// Borrow the reference for the duration of the given closure.
+    ///
+    /// Panics if the reference is uninitialized, currently borrowed or if the
+    /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
     R borrow(F f, std::source_location loc = std::source_location::current())
         requires(
@@ -105,6 +143,10 @@ public:
         return res;
     }
 
+    /// Borrow the reference for the duration of the given closure.
+    ///
+    /// Panics if the reference is uninitialized, currently borrowed or if the
+    /// new borrowed reference outlives execution of the closure.
     template<typename F>
     void borrow(
         F f, std::source_location loc = std::source_location::current()
@@ -125,6 +167,10 @@ public:
         );
     }
 
+    /// Mutably borrow the reference for the duration of the given closure.
+    ///
+    /// Panics if the reference is uninitialized, currently borrowed or if the
+    /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
     void borrow_mut(
         F f, std::source_location loc = std::source_location::current()
@@ -151,6 +197,10 @@ public:
         return r;
     }
 
+    /// Mutably borrow the reference for the duration of the given closure.
+    ///
+    /// Panics if the reference is uninitialized, currently borrowed or if the
+    /// new borrowed reference outlives execution of the closure.
     template<typename F>
     void borrow_mut(
         F f, std::source_location loc = std::source_location::current()
@@ -173,6 +223,7 @@ public:
         );
     }
 
+    /// Destroy the mutable reference.
     ~RefMut() {
         if (_r) {
             _r->cnts.remove_ref_mut();

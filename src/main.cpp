@@ -61,8 +61,8 @@ static void test_multi_borrow() {
     std::println("Values are: {} {} {}", *ref1, *ref2, *ref3);
 
     std::println("Creating mutable reference.");
-    auto mref = n.ref_mut(); // Cannot mutably borrow value that is already
-                             // borrowed.
+    auto mref = n.ref_mut(); // borrow violation: Cannot mutably borrow value
+                             // that is already borrowed.
 
     std::println("Mutating reference.");
     *mref = 20;

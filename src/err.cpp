@@ -7,7 +7,7 @@ namespace bor {
 static std::mutex exit_mutex;
 
 [[noreturn]]
-void panic(const int status) {
+void panic(const int status) noexcept {
     exit_mutex.lock();
     // Exit is guarded by mutex so this is safe.
     // NOLINTNEXTLINE(concurrency-mt-unsafe)
