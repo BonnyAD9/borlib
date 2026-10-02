@@ -68,6 +68,7 @@ public:
         return *this;
     }
 
+    [[nodiscard]]
     const T &get(
         std::source_location loc = std::source_location::current()
     ) const {
@@ -79,6 +80,7 @@ public:
 
     const T *operator->() const { return &get(); }
 
+    [[nodiscard]]
     Ref<T> ref(
         std::source_location loc = std::source_location::current()
     ) const {
@@ -95,17 +97,14 @@ public:
 
 } // namespace bor
 
-namespace std {
-
-template<typename T> struct formatter<bor::Ref<T>> {
+// NOLINTNEXTLINE(bugprone-std-namespace-modification)
+template<typename T> struct std::formatter<bor::Ref<T>> {
     constexpr auto parse(format_parse_context &ctx) { return _fmt.parse(ctx); }
 
     auto format(const bor::Ref<T> &v, format_context &ctx) const {
-        _fmt.format(*v, ctx);
+        return _fmt.format(*v, ctx);
     }
 
 private:
     formatter<T> _fmt;
 };
-
-} // namespace std

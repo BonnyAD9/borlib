@@ -4,7 +4,6 @@
 #include <source_location>
 #include <type_traits>
 
-#include "err.hpp"
 #include "ref.hpp"
 #include "ref_mut.hpp"
 #include "val_inner.hpp"
@@ -57,6 +56,7 @@ public:
         _v.set(other._v, loc);
     }
 
+    [[nodiscard]]
     const T &get(
         std::source_location loc = std::source_location::current()
     ) const {
@@ -93,9 +93,8 @@ public:
 
 } // namespace bor
 
-namespace std {
-
-template<typename T> struct formatter<bor::Val<T>> {
+// NOLINTNEXTLINE(bugprone-std-namespace-modification)
+template<typename T> struct std::formatter<bor::Val<T>> {
     constexpr auto parse(format_parse_context &ctx) { return _fmt.parse(ctx); }
 
     auto format(const bor::Val<T> &v, format_context &ctx) const {
@@ -105,5 +104,3 @@ template<typename T> struct formatter<bor::Val<T>> {
 private:
     formatter<T> _fmt;
 };
-
-} // namespace std
