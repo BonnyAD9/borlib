@@ -17,7 +17,7 @@ void panic(
 ) {
     std::print(
         std::cerr,
-        "{}:{}:{}: \x1b[91mborrow violation:\x1b]0m ",
+        "{}:{}:{}: \x1b[91mborrow violation:\x1b[0m ",
         loc.file_name(),
         loc.line(),
         loc.column()

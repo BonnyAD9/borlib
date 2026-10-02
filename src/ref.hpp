@@ -20,7 +20,7 @@ public:
     Ref() = default;
 
     Ref(ValInner<T> &val, std::source_location loc) : _r(&val) {
-        val->cnts.create_ref(loc);
+        val.cnts.create_ref(loc);
     }
 
     Ref(Ref<T> &&other,
@@ -72,7 +72,7 @@ public:
         std::source_location loc = std::source_location::current()
     ) const {
         panic_if(!_r, loc, "Cannot access uninitialized reference.");
-        return *_r->value;
+        return _r->value;
     }
 
     const T &operator*() const { return get(); }
@@ -94,3 +94,18 @@ public:
 };
 
 } // namespace bor
+
+namespace std {
+
+template<typename T> struct formatter<bor::Ref<T>> {
+    constexpr auto parse(format_parse_context &ctx) { return _fmt.parse(ctx); }
+
+    auto format(const bor::Ref<T> &v, format_context &ctx) const {
+        _fmt.format(*v, ctx);
+    }
+
+private:
+    formatter<T> _fmt;
+};
+
+} // namespace std

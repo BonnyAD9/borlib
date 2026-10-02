@@ -51,7 +51,7 @@ public:
 
     T &get(std::source_location loc = std::source_location::current()) const {
         panic_if(!_r, loc, "Cannot access uninitialized mutable reference.");
-        return *_r->value;
+        return _r->value;
     }
 
     T &operator*() const { return get(); }
@@ -115,3 +115,18 @@ public:
 };
 
 } // namespace bor
+
+namespace std {
+
+template<typename T> struct formatter<bor::RefMut<T>> {
+    constexpr auto parse(format_parse_context &ctx) { return _fmt.parse(ctx); }
+
+    auto format(const bor::RefMut<T> &v, format_context &ctx) const {
+        _fmt.format(*v, ctx);
+    }
+
+private:
+    formatter<T> _fmt;
+};
+
+} // namespace std

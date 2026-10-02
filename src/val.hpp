@@ -1,8 +1,10 @@
 #pragma once
 
+#include <format>
 #include <source_location>
 #include <type_traits>
 
+#include "err.hpp"
 #include "ref.hpp"
 #include "ref_mut.hpp"
 #include "val_inner.hpp"
@@ -55,6 +57,18 @@ public:
         _v.set(other._v, loc);
     }
 
+    const T &get(
+        std::source_location loc = std::source_location::current()
+    ) const {
+        _v.cnts.check_read(loc);
+        return _v.value;
+    }
+
+    T &get(std::source_location loc = std::source_location::current()) {
+        _v.cnts.check_write(loc);
+        return _v.value;
+    }
+
     operator T()
         requires(std::is_copy_constructible_v<T>)
     {
@@ -72,11 +86,24 @@ public:
         return { _v, loc };
     }
 
-    Ref<T> operator&() const { return ref(); }
-
-    RefMut<T> operator&() { return ref_mut(); }
+    Ref<T> operator&() { return ref(); }
 
     ~Val() { _v.cnts.check_destroy(std::source_location::current()); }
 };
 
 } // namespace bor
+
+namespace std {
+
+template<typename T> struct formatter<bor::Val<T>> {
+    constexpr auto parse(format_parse_context &ctx) { return _fmt.parse(ctx); }
+
+    auto format(const bor::Val<T> &v, format_context &ctx) const {
+        return _fmt.format(v.get(), ctx);
+    }
+
+private:
+    formatter<T> _fmt;
+};
+
+} // namespace std
