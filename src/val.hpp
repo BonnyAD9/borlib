@@ -3,7 +3,7 @@
 #include <source_location>
 #include <type_traits>
 
-#include "counters.hpp"
+#include "ref.hpp"
 #include "val_inner.hpp"
 
 namespace bor {
@@ -17,7 +17,7 @@ public:
     Val(Val<T> &&other,
         std::source_location loc = std::source_location::current()) noexcept
         requires(std::is_move_constructible_v<T>)
-        : _v(std::move(other._v), loc) {}
+        : _v(std::move(other._v), loc) { }
 
     Val(const Val<T> &other,
         std::source_location loc = std::source_location::current()) noexcept
@@ -52,6 +52,17 @@ public:
         requires(std::is_copy_assignable_v<T>)
     {
         _v.set(other._v, loc);
+    }
+
+    operator T()
+        requires(std::is_copy_constructible_v<T>)
+    {
+        _v.cnts.check_read(std::source_location::current());
+        return _v.value;
+    }
+
+    Ref<T> ref(std::source_location loc = std::source_location::current()) {
+        return { _v, loc };
     }
 };
 

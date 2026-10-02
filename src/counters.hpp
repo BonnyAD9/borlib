@@ -67,6 +67,20 @@ public:
     void check_destroy(std::source_location loc) const {
         panic_if(any_ref(), loc, "Cannot destroy value that is borrowed.");
     }
+
+    void create_ref(std::source_location loc) {
+        _ref.fetch_add(1, std::memory_order_acquire);
+        if (_mut.load(std::memory_order_acquire)) {
+            _ref.fetch_sub(1, std::memory_order_release);
+            panic(
+                loc, "Cannot borrow value that is already borrowed mutably."
+            );
+        }
+    }
+
+    void add_ref() { _ref.fetch_add(1, std::memory_order_acquire); }
+
+    void remove_ref() { _ref.fetch_sub(1, std::memory_order_release); }
 };
 
 } // namespace bor
