@@ -4,6 +4,7 @@
 #include <type_traits>
 
 #include "ref.hpp"
+#include "ref_mut.hpp"
 #include "val_inner.hpp"
 
 namespace bor {
@@ -64,6 +65,18 @@ public:
     Ref<T> ref(std::source_location loc = std::source_location::current()) {
         return { _v, loc };
     }
+
+    RefMut<T> ref_mut(
+        std::source_location loc = std::source_location::current()
+    ) {
+        return { _v, loc };
+    }
+
+    Ref<T> operator&() const { return ref(); }
+
+    RefMut<T> operator&() { return ref_mut(); }
+
+    ~Val() { _v.cnts.check_destroy(std::source_location::current()); }
 };
 
 } // namespace bor

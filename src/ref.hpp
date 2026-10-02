@@ -7,8 +7,14 @@
 
 namespace bor {
 
+template<typename T> class RefMut;
+
 template<typename T> class Ref {
+    friend RefMut<T>;
+
     ValInner<T> *_r{ nullptr };
+
+    Ref(ValInner<T> *val) : _r(val) { }
 
 public:
     Ref() = default;
@@ -77,6 +83,13 @@ public:
         std::source_location loc = std::source_location::current()
     ) const {
         return { *this, loc };
+    }
+
+    ~Ref() {
+        if (_r) {
+            _r->cnts.remove_ref();
+            _r = nullptr;
+        }
     }
 };
 

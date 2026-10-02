@@ -81,6 +81,33 @@ public:
     void add_ref() { _ref.fetch_add(1, std::memory_order_acquire); }
 
     void remove_ref() { _ref.fetch_sub(1, std::memory_order_release); }
+
+    void create_ref_mut(std::source_location loc) {
+        panic_if(
+            _mut.exchange(true, std::memory_order_acquire),
+            loc,
+            "Cannot mutably borrow value that is already mutably borrowed."
+        );
+        panic_if(
+            _ref.fetch_add(1) > 0,
+            loc,
+            "Cannot mutably borrow value that is already borrowed."
+        );
+    }
+
+    void remove_ref_mut() {
+        if (_ref.fetch_sub(1, std::memory_order_release) == 0) {
+            _mut.store(false, std::memory_order_release);
+        }
+    }
+
+    void transfer_mut_to_ref() {
+        if (_ref.load() == 1) {
+            _mut.store(false, std::memory_order_release);
+        }
+    }
+
+    std::size_t ref_cnt() { return _ref.load(); }
 };
 
 } // namespace bor
