@@ -12,12 +12,12 @@ namespace bor {
 ///
 /// This reference checks that noone else can access the referenced value.
 template<typename T> class RefMut {
-    ValInner<T> *_r{ nullptr };
+    detail::ValInner<T> *_r{ nullptr };
 #if BOR_CHECK
     bool _borrowed = false;
 #endif
 
-    constexpr RefMut(ValInner<T> *val) noexcept : _r(val) { }
+    constexpr RefMut(detail::ValInner<T> *val) noexcept : _r(val) { }
 
 public:
     /// Constructs uninitialized reference.
@@ -30,7 +30,8 @@ public:
     /// the mutable reference is valid and modifies the counters accordingly.
     ///
     /// Panics if creating the mutable reference is invalid.
-    RefMut(ValInner<T> &val BOR(, SourcePos loc)) noexcept : _r(&val) {
+    RefMut(detail::ValInner<T> &val BOR(, detail::SourcePos loc)) noexcept :
+        _r(&val) {
 #if BOR_CHECK
         val.cnts.create_ref_mut(loc.inc());
 #endif
@@ -41,7 +42,8 @@ public:
     ///
     /// Panics if the other reference is uninitialized or currently borrowed.
     RefMut(
-        RefMut<T> &&other BOR(, SourcePos loc = SourcePos::current())
+        RefMut<T> &&other
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept :
         _r(other._r) {
 #if BOR_CHECK
@@ -68,12 +70,12 @@ public:
 #if BOR_CHECK
         panic_if(
             !other._r,
-            SourcePos::caller2(),
+            detail::SourcePos::caller2(),
             "Cannot move uninitialized mutable reference."
         );
         panic_if(
             other._borrowed,
-            SourcePos::caller2(),
+            detail::SourcePos::caller2(),
             "Cannot move borroed mutable reference."
         );
         if (_r) {
@@ -94,7 +96,7 @@ public:
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
     [[nodiscard]]
-    T &get(BOR(SourcePos loc = SourcePos::current())) const {
+    T &get(BOR(detail::SourcePos loc = detail::SourcePos::current())) const {
 #if BOR_CHECK
         panic_if(
             !_r, loc.inc(), "Cannot access uninitialized mutable reference."
@@ -109,17 +111,19 @@ public:
     /// Get access to the underlaying value.
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
-    T &operator*() const { return get(BOR(SourcePos::caller2())); }
+    T &operator*() const { return get(BOR(detail::SourcePos::caller2())); }
 
     /// Access member of the underlaying value.
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
-    T *operator->() const { return &get(BOR(SourcePos::caller2())); }
+    T *operator->() const { return &get(BOR(detail::SourcePos::caller2())); }
 
     /// Transform this reference into immutable reference.
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
-    Ref<T> into_ref(BOR(SourcePos loc = SourcePos::current())) {
+    Ref<T> into_ref(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) {
 #if BOR_CHECK
         panic_if(
             !_r, loc.inc(), "Cannot transfer uninitialized mutable reference."
@@ -138,7 +142,7 @@ public:
     ///
     /// Panics if the reference is uninitialized or currently borrowed.
     operator Ref<T>(this RefMut<T> &&self) {
-        return self.into_ref(BOR(SourcePos::caller2()));
+        return self.into_ref(BOR(detail::SourcePos::caller2()));
     }
 
     /// Borrow the reference for the duration of the given closure.
@@ -146,7 +150,7 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
-    R borrow(F f BOR(, SourcePos loc = SourcePos::current()))
+    R borrow(F f BOR(, detail::SourcePos loc = detail::SourcePos::current()))
         requires(
             std::is_invocable_r_v<R, F, Ref<T>> &&
             std::is_move_constructible_v<R>
@@ -180,7 +184,9 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename F>
-    void borrow(F f BOR(, SourcePos loc = SourcePos::current()))
+    void borrow(
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    )
         requires(std::is_invocable_v<F, Ref<T>>)
     {
 #if BOR_CHECK
@@ -210,7 +216,9 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
-    void borrow_mut(F f BOR(, SourcePos loc = SourcePos::current()))
+    void borrow_mut(
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    )
         requires(
             std::is_invocable_r_v<R, F, RefMut<T>> &&
             std::is_move_constructible_v<R>
@@ -246,7 +254,9 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename F>
-    void borrow_mut(F f BOR(, SourcePos loc = SourcePos::current()))
+    void borrow_mut(
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    )
         requires(std::is_invocable_v<F, RefMut<T>>)
     {
 #if BOR_CHECK

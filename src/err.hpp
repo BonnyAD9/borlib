@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdlib>
+#include <mutex>
 
 #include "defines.hpp"
 
@@ -18,9 +19,17 @@ namespace bor {
 
 /// Exits with the given status code.
 [[noreturn]]
-void panic(int status = EXIT_FAILURE) noexcept;
+inline void panic(const int status = EXIT_SUCCESS) noexcept {
+    static std::mutex exit_mutex;
+    exit_mutex.lock();
+    // Exit is guarded by mutex so this is safe.
+    // NOLINTNEXTLINE(concurrency-mt-unsafe)
+    std::exit(status);
+}
 
 #if BOR_CHECK
+
+namespace detail {
 /// Prints the given source location and error message and exits with erroneus
 /// status code.
 template<typename... Args>
@@ -40,7 +49,7 @@ void panic(
         // NOLINTNEXTLINE(bugprone-empty-catch)
     } catch (...) {
     }
-    panic();
+    bor::panic();
 }
 
 /// If `cond` is false, prints the given source location and error message and
@@ -54,6 +63,7 @@ void panic_if(
     }
 }
 
+} // namespace detail
 #endif // BOR_CHECK
 
 } // namespace bor

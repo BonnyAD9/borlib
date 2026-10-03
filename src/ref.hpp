@@ -20,9 +20,9 @@ template<typename T> class RefMut;
 template<typename T> class Ref {
     friend RefMut<T>;
 
-    ValInner<T> *_r{ nullptr };
+    detail::ValInner<T> *_r{ nullptr };
 
-    constexpr Ref(ValInner<T> *val) noexcept : _r(val) { }
+    constexpr Ref(detail::ValInner<T> *val) noexcept : _r(val) { }
 
 public:
     /// Create uninitialized reference.
@@ -35,7 +35,8 @@ public:
     /// the counters.
     ///
     /// Panics if creating the reference is not valid.
-    Ref(ValInner<T> &val BOR(, SourcePos loc)) noexcept : _r(&val) {
+    Ref(detail::ValInner<T> &val BOR(, detail::SourcePos loc)) noexcept :
+        _r(&val) {
 #if BOR_CHECK
         val.cnts.create_ref(loc.inc());
 #endif
@@ -46,7 +47,8 @@ public:
     /// uninitialized.
     ///
     /// Panics if the other reference is uninitialized.
-    Ref(Ref<T> &&other, SourcePos loc = SourcePos::current()) noexcept :
+    Ref(Ref<T> &&other,
+        detail::SourcePos loc = detail::SourcePos::current()) noexcept :
         _r(other._r) {
         panic_if(!_r, loc.inc(), "Cannot move uninitialized reference.");
         other._r = nullptr;
@@ -55,7 +57,8 @@ public:
     /// Copy constructor of reference.
     ///
     /// Panics if the other reference is uninitialized.
-    Ref(const Ref<T> &other, SourcePos loc = SourcePos::current()) noexcept :
+    Ref(const Ref<T> &other,
+        detail::SourcePos loc = detail::SourcePos::current()) noexcept :
         _r(other._r) {
         panic_if(!_r, loc.inc(), "Cannot copy uninitialized reference.");
         _r->cnts.add_ref();
@@ -68,7 +71,7 @@ public:
     Ref<T> &operator=(Ref<T> &&other) noexcept {
         panic_if(
             !other._r,
-            SourcePos::caller2(),
+            detail::SourcePos::caller2(),
             "Cannot move uninitialized reference."
         );
         if (_r) {
@@ -85,7 +88,7 @@ public:
     Ref<T> &operator=(const Ref<T> &other) noexcept {
         panic_if(
             !other._r,
-            SourcePos::caller2(),
+            detail::SourcePos::caller2(),
             "Cannot copy uninitialized reference."
         );
         if (this == &other) {
@@ -109,7 +112,9 @@ public:
     ///
     /// Panics if the reference is uninitialized.
     [[nodiscard]]
-    const T &get(BOR(SourcePos loc = SourcePos::current())) const noexcept {
+    const T &get(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) const noexcept {
 #if BOR_CHECK
         panic_if(!_r, loc.inc(), "Cannot access uninitialized reference.");
 #endif
@@ -120,14 +125,14 @@ public:
     ///
     /// Panics if the reference is uninitialized.
     const T &operator*() const noexcept {
-        return get(BOR(SourcePos::caller2()));
+        return get(BOR(detail::SourcePos::caller2()));
     }
 
     /// Access member of the referenced value.
     ///
     /// Panics if the reference is uninitialized.
     const T *operator->() const noexcept {
-        return &get(BOR(SourcePos::caller2()));
+        return &get(BOR(detail::SourcePos::caller2()));
     }
 
 #if BOR_CHECK

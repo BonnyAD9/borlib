@@ -12,7 +12,7 @@ BOR() // Disables warning on unused "defines.hpp"
 
 # include "err.hpp"
 
-namespace bor {
+namespace bor::detail {
 
 /// Internal type for reference counting of borlib references.
 class Counters {
@@ -178,6 +178,6 @@ public:
     }
 };
 
-} // namespace bor
+} // namespace bor::detail
 
 #endif // BOR_CHECK == 1

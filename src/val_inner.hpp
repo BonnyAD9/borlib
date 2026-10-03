@@ -9,7 +9,7 @@
 # include "counters.hpp"
 #endif
 
-namespace bor {
+namespace bor::detail {
 
 /// Inner representation of the value.
 template<typename T> struct ValInner {
@@ -85,4 +85,4 @@ template<typename T> struct ValInner {
     }
 };
 
-} // namespace bor
+} // namespace bor::detail

@@ -17,7 +17,7 @@ BOR() // Disables warning on unused "defines.hpp"
 #  include <variant>
 # endif
 
-namespace bor {
+namespace bor::detail {
 
 /// An extension of `std::source_location` which is capable of using the
 /// stacktrace.
@@ -148,6 +148,6 @@ public:
 # endif // BOR_STACKTRACE == 1
 };
 
-} // namespace bor
+} // namespace bor::detail
 
 #endif

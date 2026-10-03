@@ -21,14 +21,15 @@ namespace bor {
 /// - Value to which exists immutable reference cannot be modified.
 /// - Every reference refering to a value refers to a valid value.
 template<typename T> class Val {
-    ValInner<T> _v;
+    detail::ValInner<T> _v;
 
 public:
 #if BOR_CHECK
     /// Move constructor of the value.
     ///
     /// Panics if there is any reference to the value.
-    Val(Val<T> &&other, SourcePos loc = SourcePos::current()) noexcept
+    Val(Val<T> &&other,
+        detail::SourcePos loc = detail::SourcePos::current()) noexcept
         requires(std::is_move_constructible_v<T>)
         : _v(std::move(other._v), loc.inc()) { }
 
@@ -36,7 +37,8 @@ public:
     ///
     /// Panics if there is any mutable reference to the value.
     constexpr Val(
-        const Val<T> &other, SourcePos loc = SourcePos::current()
+        const Val<T> &other,
+        detail::SourcePos loc = detail::SourcePos::current()
     ) noexcept
         requires(std::is_copy_constructible_v<T>)
         : _v(other._v, loc.inc()) { }
@@ -47,7 +49,7 @@ public:
     Val<T> &operator=(Val<T> &&other) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        set(std::move(other), SourcePos::caller2());
+        set(std::move(other), detail::SourcePos::caller2());
         return *this;
     }
 
@@ -58,7 +60,7 @@ public:
     Val<T> &operator=(const Val<T> &other) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        set(other, SourcePos::caller2());
+        set(other, detail::SourcePos::caller2());
         return *this;
     }
 #else  // BOR_CHECK
@@ -71,7 +73,7 @@ public:
     /// Construct the value.
     template<typename... Args>
     constexpr Val(Args... args)
-        requires(std::is_constructible_v<ValInner<T>, Args...>)
+        requires(std::is_constructible_v<detail::ValInner<T>, Args...>)
         : _v(std::forward<Args>(args)...) { }
 
     /// Assign to this by moving value.
@@ -80,7 +82,7 @@ public:
     Val<T> &operator=(T &&other) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        set(std::move(other) BOR(, SourcePos::caller2()));
+        set(std::move(other) BOR(, detail::SourcePos::caller2()));
         return *this;
     }
 
@@ -90,7 +92,7 @@ public:
     Val<T> &operator=(const T &other) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        set(other BOR(, SourcePos::caller2()));
+        set(other BOR(, detail::SourcePos::caller2()));
         return *this;
     }
 
@@ -98,7 +100,8 @@ public:
     ///
     /// Panics if there is any reference to this or the other value.
     void set(
-        Val<T> &&other BOR(, SourcePos loc = SourcePos::current())
+        Val<T> &&other
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept
         requires(std::is_move_assignable_v<T>)
     {
@@ -110,7 +113,8 @@ public:
     /// Panics if there is any reference to this value or any mutable reference
     /// to the other value.
     void set(
-        const Val<T> &other BOR(, SourcePos loc = SourcePos::current())
+        const Val<T> &other
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
@@ -120,7 +124,9 @@ public:
     /// Move the value.
     ///
     /// Panics if there is any reference to this value.
-    void set(T &&other BOR(, SourcePos loc = SourcePos::current())) noexcept
+    void set(
+        T &&other BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept
         requires(std::is_move_assignable_v<T>)
     {
         get(BOR(loc.inc())) = std::move(other);
@@ -130,7 +136,8 @@ public:
     ///
     /// Panics if there is any reference to this value.
     void set(
-        const T &other BOR(, SourcePos loc = SourcePos::current())
+        const T &other
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
@@ -141,7 +148,9 @@ public:
     ///
     /// Panics if there is any mutable reference to this value.
     [[nodiscard]]
-    const T &get(BOR(SourcePos loc = SourcePos::current())) const noexcept {
+    const T &get(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) const noexcept {
 #if BOR_CHECK
         _v.cnts.check_read(BOR(loc.inc()));
 #endif
@@ -151,7 +160,9 @@ public:
     /// Get the value mutably.
     ///
     /// Panics if there is any reference to the value.
-    T &get_mut(BOR(SourcePos loc = SourcePos::current())) noexcept {
+    T &get_mut(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept {
 #if BOR_CHECK
         _v.cnts.check_write(BOR(loc.inc()));
 #endif
@@ -162,33 +173,39 @@ public:
     ///
     /// Panics if there is any mutable reference to the value.
     operator const T &() const noexcept {
-        return get(BOR(SourcePos::caller2()));
+        return get(BOR(detail::SourcePos::caller2()));
     }
 
     /// Get reference to the value.
     ///
     /// Panics if there is any mutable refererence to the value.
-    Ref<T> ref(BOR(SourcePos loc = SourcePos::current())) noexcept {
+    Ref<T> ref(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept {
         return { _v BOR(, loc.inc()) };
     }
 
     /// Get mutable reference to the value.
     ///
     /// Panics if there is any reference to the value.
-    RefMut<T> ref_mut(BOR(SourcePos loc = SourcePos::current())) noexcept {
+    RefMut<T> ref_mut(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept {
         return { _v BOR(, loc.inc()) };
     }
 
     /// Get reference to the value.
     ///
     /// Panics if there is any reference to the value.
-    Ref<T> operator&() noexcept { return ref(BOR(SourcePos::caller2())); }
+    Ref<T> operator&() noexcept {
+        return ref(BOR(detail::SourcePos::caller2()));
+    }
 
 #if BOR_CHECK
     /// Destroy the value.
     ///
     /// Panics if there is any reference to the value.
-    ~Val() { _v.cnts.check_destroy(SourcePos::caller2()); }
+    ~Val() { _v.cnts.check_destroy(detail::SourcePos::caller2()); }
 #else
     ~Val() = default;
 #endif
