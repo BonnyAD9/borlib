@@ -1,7 +1,13 @@
 #pragma once
 
-#include "err.hpp"
+#include <format>
+
+#include "defines.hpp"
 #include "val_inner.hpp"
+
+#if BOR_CHECK
+# include "err.hpp"
+#endif
 
 namespace bor {
 
@@ -29,10 +35,13 @@ public:
     /// the counters.
     ///
     /// Panics if creating the reference is not valid.
-    Ref(ValInner<T> &val, SourcePos loc) noexcept : _r(&val) {
+    Ref(ValInner<T> &val BOR(, SourcePos loc)) noexcept : _r(&val) {
+#if BOR_CHECK
         val.cnts.create_ref(loc.inc());
+#endif
     }
 
+#if BOR_CHECK
     /// Move constructor of reference. The other reference will be made
     /// uninitialized.
     ///
@@ -85,17 +94,25 @@ public:
         if (_r) {
             _r->cnts.remove_ref();
         }
-        _r = other._r;
         _r->cnts.add_ref();
+        _r = other._r;
         return *this;
     }
+#else
+    Ref(Ref<T> &&) = default;
+    Ref(const Ref<T> &) = default;
+    Ref<T> &operator=(Ref<T> &&) = default;
+    Ref<T> &operator=(const Ref<T> &) = default;
+#endif // BOR_CHECK
 
     /// Get the referenced value.
     ///
     /// Panics if the reference is uninitialized.
     [[nodiscard]]
-    const T &get(SourcePos loc = SourcePos::current()) const noexcept {
+    const T &get(BOR(SourcePos loc = SourcePos::current())) const noexcept {
+#if BOR_CHECK
         panic_if(!_r, loc.inc(), "Cannot access uninitialized reference.");
+#endif
         return _r->value;
     }
 
@@ -103,16 +120,17 @@ public:
     ///
     /// Panics if the reference is uninitialized.
     const T &operator*() const noexcept {
-        return get(SourcePos::caller2().inc());
+        return get(BOR(SourcePos::caller2()));
     }
 
     /// Access member of the referenced value.
     ///
     /// Panics if the reference is uninitialized.
     const T *operator->() const noexcept {
-        return &get(SourcePos::caller2().inc());
+        return &get(BOR(SourcePos::caller2()));
     }
 
+#if BOR_CHECK
     /// Destroy the reference.
     ~Ref() noexcept {
         if (_r) {
@@ -120,6 +138,9 @@ public:
             _r = nullptr;
         }
     }
+#else
+    ~Ref() = default;
+#endif
 };
 
 } // namespace bor

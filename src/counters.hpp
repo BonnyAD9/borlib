@@ -1,10 +1,16 @@
 #pragma once
 
-#include <atomic>
-#include <format>
-#include <source_location>
+#include "defines.hpp"
 
-#include "err.hpp"
+BOR() // Disables warning on unused "defines.hpp"
+
+#if BOR_CHECK
+
+# include <atomic>
+# include <format>
+# include <source_location>
+
+# include "err.hpp"
 
 namespace bor {
 
@@ -173,3 +179,5 @@ public:
 };
 
 } // namespace bor
+
+#endif // BOR_CHECK == 1

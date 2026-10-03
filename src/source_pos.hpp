@@ -1,17 +1,21 @@
 #pragma once
 
-#include <source_location>
-#include <string_view>
-
 #include "defines.hpp"
 
-#if BOR_STACKTRACE == 1
-# include <cstddef>
-# include <optional>
-# include <stacktrace>
-# include <string>
-# include <variant>
-#endif
+BOR() // Disables warning on unused "defines.hpp"
+
+#if BOR_CHECK == 1
+
+# include <source_location>
+# include <string_view>
+
+# if BOR_STACKTRACE == 1
+#  include <cstddef>
+#  include <optional>
+#  include <stacktrace>
+#  include <string>
+#  include <variant>
+# endif
 
 namespace bor {
 
@@ -19,7 +23,7 @@ namespace bor {
 /// stacktrace.
 class SourcePos {
 
-#if BOR_STACKTRACE == 1
+# if BOR_STACKTRACE == 1
     struct Pos {
         std::string file;
         std::size_t line;
@@ -58,9 +62,9 @@ class SourcePos {
     }
 
     SourcePos(std::size_t depth) : _pos(depth) { }
-#else  // BOR_STACKTRACE == 1
+# else  // BOR_STACKTRACE == 1
     std::source_location _pos;
-#endif // BOR_STACKTRACE == 1
+# endif // BOR_STACKTRACE == 1
 
     SourcePos(std::source_location loc) : _pos(loc) { }
 
@@ -72,7 +76,7 @@ public:
         return loc;
     }
 
-#if BOR_STACKTRACE == 1
+# if BOR_STACKTRACE == 1
     /// Get the source location of the caller.
     ///
     /// This will save the callers stack trace depth to be retrieved later.
@@ -103,7 +107,7 @@ public:
 
     /// Get the column. This may be 0 if the column is unknown.
     std::size_t col() { return get_pos().col.value_or(0); }
-#else  // BOR_STACKTRACE == 1
+# else  // BOR_STACKTRACE == 1
     /// Get the source location of the caller.
     ///
     /// This will save the callers stack trace depth to be retrieved later.
@@ -141,7 +145,9 @@ public:
 
     /// Get the column.
     std::size_t col() { return _pos.column(); }
-#endif // BOR_STACKTRACE == 1
+# endif // BOR_STACKTRACE == 1
 };
 
 } // namespace bor
+
+#endif

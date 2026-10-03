@@ -1,10 +1,18 @@
 #pragma once
 
-#include <format>
-#include <iostream>
-#include <print>
+#include <cstdlib>
 
-#include "source_pos.hpp"
+#include "defines.hpp"
+
+BOR() // Disables warning on unused "defines.hpp"
+
+#if BOR_CHECK
+# include <format>
+# include <iostream>
+# include <print>
+
+# include "source_pos.hpp"
+#endif
 
 namespace bor {
 
@@ -12,6 +20,7 @@ namespace bor {
 [[noreturn]]
 void panic(int status = EXIT_FAILURE) noexcept;
 
+#if BOR_CHECK
 /// Prints the given source location and error message and exits with erroneus
 /// status code.
 template<typename... Args>
@@ -44,5 +53,7 @@ void panic_if(
         panic(loc.inc(), fmt, args...);
     }
 }
+
+#endif // BOR_CHECK
 
 } // namespace bor

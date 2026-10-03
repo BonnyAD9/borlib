@@ -4,6 +4,7 @@
 #include <type_traits>
 #include <utility>
 
+#include "defines.hpp"
 #include "ref.hpp"
 #include "ref_mut.hpp"
 #include "val_inner.hpp"
@@ -23,6 +24,7 @@ template<typename T> class Val {
     ValInner<T> _v;
 
 public:
+#if BOR_CHECK
     /// Move constructor of the value.
     ///
     /// Panics if there is any reference to the value.
@@ -38,12 +40,6 @@ public:
     ) noexcept
         requires(std::is_copy_constructible_v<T>)
         : _v(other._v, loc.inc()) { }
-
-    /// Construct the value.
-    template<typename... Args>
-    constexpr Val(Args... args)
-        requires(std::is_constructible_v<ValInner<T>, Args...>)
-        : _v(std::forward<Args>(args)...) { }
 
     /// Move assignment operator for the value.
     ///
@@ -65,6 +61,18 @@ public:
         set(other, SourcePos::caller2());
         return *this;
     }
+#else  // BOR_CHECK
+    Val(Val<T> &&) = default;
+    Val(const Val<T> &) = default;
+    Val<T> &operator=(Val<T> &&) = default;
+    Val<T> &operator=(const Val<T> &) = default;
+#endif // BOR_CHECK
+
+    /// Construct the value.
+    template<typename... Args>
+    constexpr Val(Args... args)
+        requires(std::is_constructible_v<ValInner<T>, Args...>)
+        : _v(std::forward<Args>(args)...) { }
 
     /// Assign to this by moving value.
     ///
@@ -72,7 +80,7 @@ public:
     Val<T> &operator=(T &&other) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        set(std::move(other), SourcePos::caller2());
+        set(std::move(other) BOR(, SourcePos::caller2()));
         return *this;
     }
 
@@ -82,17 +90,19 @@ public:
     Val<T> &operator=(const T &other) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        set(other, SourcePos::caller2());
+        set(other BOR(, SourcePos::caller2()));
         return *this;
     }
 
     /// Move the value.
     ///
     /// Panics if there is any reference to this or the other value.
-    void set(Val<T> &&other, SourcePos loc = SourcePos::current()) noexcept
+    void set(
+        Val<T> &&other BOR(, SourcePos loc = SourcePos::current())
+    ) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        _v.set(std::move(other._v), loc.inc());
+        _v.set(std::move(other._v) BOR(, loc.inc()));
     }
 
     /// Copy the value.
@@ -100,81 +110,88 @@ public:
     /// Panics if there is any reference to this value or any mutable reference
     /// to the other value.
     void set(
-        const Val<T> &other, SourcePos loc = SourcePos::current()
+        const Val<T> &other BOR(, SourcePos loc = SourcePos::current())
     ) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        _v.set(other._v, loc.inc());
+        _v.set(other._v BOR(, loc.inc()));
     }
 
     /// Move the value.
     ///
     /// Panics if there is any reference to this value.
-    void set(T &&other, SourcePos loc = SourcePos::current()) noexcept
+    void set(T &&other BOR(, SourcePos loc = SourcePos::current())) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        get(loc.inc()) = std::move(other);
+        get(BOR(loc.inc())) = std::move(other);
     }
 
     /// Copy the value.
     ///
     /// Panics if there is any reference to this value.
-    void set(const T &other, SourcePos loc = SourcePos::current()) noexcept
+    void set(
+        const T &other BOR(, SourcePos loc = SourcePos::current())
+    ) noexcept
         requires(std::is_copy_assignable_v<T>)
     {
-        get(loc.inc()) = other;
+        get(BOR(loc.inc())) = other;
     }
 
     /// Get the value immutably.
     ///
     /// Panics if there is any mutable reference to this value.
     [[nodiscard]]
-    const T &get(SourcePos loc = SourcePos::current()) const noexcept {
-        _v.cnts.check_read(loc.inc());
+    const T &get(BOR(SourcePos loc = SourcePos::current())) const noexcept {
+#if BOR_CHECK
+        _v.cnts.check_read(BOR(loc.inc()));
+#endif
         return _v.value;
     }
 
     /// Get the value mutably.
     ///
     /// Panics if there is any reference to the value.
-    T &get_mut(SourcePos loc = SourcePos::current()) noexcept {
-        _v.cnts.check_write(loc.inc());
+    T &get_mut(BOR(SourcePos loc = SourcePos::current())) noexcept {
+#if BOR_CHECK
+        _v.cnts.check_write(BOR(loc.inc()));
+#endif
         return _v.value;
     }
 
-    /// Copy out of the value.
+    /// Get the value.
     ///
     /// Panics if there is any mutable reference to the value.
-    operator T() noexcept
-        requires(std::is_copy_constructible_v<T>)
-    {
-        _v.cnts.check_read(SourcePos::caller2());
-        return _v.value;
+    operator const T &() const noexcept {
+        return get(BOR(SourcePos::caller2()));
     }
 
     /// Get reference to the value.
     ///
     /// Panics if there is any mutable refererence to the value.
-    Ref<T> ref(SourcePos loc = SourcePos::current()) noexcept {
-        return { _v, loc.inc() };
+    Ref<T> ref(BOR(SourcePos loc = SourcePos::current())) noexcept {
+        return { _v BOR(, loc.inc()) };
     }
 
     /// Get mutable reference to the value.
     ///
     /// Panics if there is any reference to the value.
-    RefMut<T> ref_mut(SourcePos loc = SourcePos::current()) noexcept {
-        return { _v, loc.inc() };
+    RefMut<T> ref_mut(BOR(SourcePos loc = SourcePos::current())) noexcept {
+        return { _v BOR(, loc.inc()) };
     }
 
     /// Get reference to the value.
     ///
     /// Panics if there is any reference to the value.
-    Ref<T> operator&() noexcept { return ref(SourcePos::caller2()); }
+    Ref<T> operator&() noexcept { return ref(BOR(SourcePos::caller2())); }
 
+#if BOR_CHECK
     /// Destroy the value.
     ///
     /// Panics if there is any reference to the value.
     ~Val() { _v.cnts.check_destroy(SourcePos::caller2()); }
+#else
+    ~Val() = default;
+#endif
 };
 
 } // namespace bor

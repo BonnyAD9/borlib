@@ -72,6 +72,7 @@ static void test_read_mut() {
 
     std::println("Mutably borrowing value.");
     auto mref = n.ref_mut();
+    *mref = 10;
 
     std::println("Reading value from the original.");
     std::println("{}", n); // borrow violation: Cannot read value that is
@@ -106,6 +107,7 @@ static void test_multi_borrow2() {
 
     std::println("Creating mutable reference.");
     auto mref = n.ref_mut();
+    *mref = 10;
 
     std::println("Creating immutable reference.");
     auto ref = &n;
