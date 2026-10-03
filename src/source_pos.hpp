@@ -1,17 +1,25 @@
 #pragma once
 
-#include <cstddef>
-#include <optional>
 #include <source_location>
-#include <stacktrace>
-#include <string>
-#include <variant>
+#include <string_view>
+
+#include "defines.hpp"
+
+#if BOR_STACKTRACE == 1
+# include <cstddef>
+# include <optional>
+# include <stacktrace>
+# include <string>
+# include <variant>
+#endif
 
 namespace bor {
 
 /// An extension of `std::source_location` which is capable of using the
 /// stacktrace.
 class SourcePos {
+
+#if BOR_STACKTRACE == 1
     struct Pos {
         std::string file;
         std::size_t line;
@@ -49,9 +57,12 @@ class SourcePos {
         return std::get<Pos>(_pos);
     }
 
-    SourcePos(std::source_location loc) : _pos(loc) { }
-
     SourcePos(std::size_t depth) : _pos(depth) { }
+#else  // BOR_STACKTRACE == 1
+    std::source_location _pos;
+#endif // BOR_STACKTRACE == 1
+
+    SourcePos(std::source_location loc) : _pos(loc) { }
 
 public:
     /// Get the current source location. This is determined at compile time.
@@ -61,13 +72,14 @@ public:
         return loc;
     }
 
+#if BOR_STACKTRACE == 1
     /// Get the source location of the caller.
-    /// 
+    ///
     /// This will save the callers stack trace depth to be retrieved later.
     static SourcePos caller() { return 2; }
 
     /// Get the source location of the caller and call inc.
-    /// 
+    ///
     /// This will save the callers stack trace depth to be retrieved later.
     static SourcePos caller2() { return 3; }
 
@@ -91,6 +103,45 @@ public:
 
     /// Get the column. This may be 0 if the column is unknown.
     std::size_t col() { return get_pos().col.value_or(0); }
+#else  // BOR_STACKTRACE == 1
+    /// Get the source location of the caller.
+    ///
+    /// This will save the callers stack trace depth to be retrieved later.
+    ///
+    /// (Backtrace is disabled, so this will act the same as
+    /// `SourcePos::current`)
+    static SourcePos caller(
+        std::source_location loc = std::source_location::current()
+    ) {
+        return loc;
+    }
+
+    /// Get the source location of the caller and call inc.
+    ///
+    /// This will save the callers stack trace depth to be retrieved later.
+    ///
+    /// (Backtrace is disabled, so this will act the same as
+    /// `SourcePos::current`)
+    static SourcePos caller2(
+        std::source_location loc = std::source_location::current()
+    ) {
+        return loc;
+    }
+
+    /// Increase the depth on the stack. This is necesary to call when passing
+    /// the SourcePos deeper to function so that the source location is
+    /// properly retrieved from the stack trace.
+    SourcePos inc() { return *this; }
+
+    /// Get the file name.
+    std::string_view file() { return _pos.file_name(); }
+
+    /// Get the line number.
+    std::size_t line() { return _pos.line(); }
+
+    /// Get the column.
+    std::size_t col() { return _pos.column(); }
+#endif // BOR_STACKTRACE == 1
 };
 
 } // namespace bor

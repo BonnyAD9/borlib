@@ -72,6 +72,7 @@ public:
         _r = other._r;
         _borrowed = false;
         other._r = nullptr;
+        return *this;
     }
 
     RefMut<T> &operator=(const RefMut<T> &) =

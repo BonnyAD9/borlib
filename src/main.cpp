@@ -115,9 +115,9 @@ static void test_multi_borrow2() {
 }
 
 static void tryout() {
+    test_dangling();
     test_borrow_escape();
     test_multi_borrow2();
-    test_dangling();
     test_borrow_infiltrate();
     test_read_mut();
     test_multi_borrow();
