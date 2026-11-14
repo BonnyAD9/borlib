@@ -1,0 +1,13 @@
+therust:
+    type: Book
+    title: The Rust Programming Language
+    author:
+        - Klabnik, Steve
+        - Nichols, Carol
+        - Krycho, Chris
+        - with contributions from the Rust Community
+    isbn: 9781718504448
+    volume: 3
+    url:
+        value: https://doc.rust-lang.org/stable/book/title-page.html
+        date: 2026-11-14
