@@ -7,9 +7,9 @@
 #include "val_inner.hpp"
 
 #if BOR_CHECK
+# include "counters.hpp"
 # include "err.hpp"
-#include "source_pos.hpp"
-#include "counters.hpp"
+# include "source_pos.hpp"
 #endif
 
 namespace bor {
@@ -58,7 +58,7 @@ public:
 
     /// Get reference to an item owned by the given slicable type at the given
     /// index.
-    /// 
+    ///
     /// Panics if creating the reference is not valid or if the index is out of
     /// bounds.
     template<typename S>
@@ -171,7 +171,7 @@ public:
     }
 
     /// Index into the object in this slice.
-    /// 
+    ///
     /// Panics if the reference is invalid or if the index is out of range.
     Ref<typename OwnedSlice<T>::Item> operator[](std::size_t idx BOR(
         , detail::SourcePos loc = detail::SourcePos::current()

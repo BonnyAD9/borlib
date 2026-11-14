@@ -5,9 +5,9 @@
 #include "val_inner.hpp"
 
 #if BOR_CHECK
+# include "counters.hpp"
 # include "err.hpp"
-#include "source_pos.hpp"
-#include "counters.hpp"
+# include "source_pos.hpp"
 #endif
 
 namespace bor {
@@ -29,7 +29,7 @@ public:
     constexpr Slice() = default;
 
     /// Create slice from the given slicable object.
-    /// 
+    ///
     /// Panics if the creating the reference is invalid.
     template<IsOwnedSlice<T> S>
     Slice(detail::ValInner<S> &val BOR(, detail::SourcePos loc)) noexcept :
@@ -41,7 +41,7 @@ public:
     }
 
     /// Create subslice of the given slicable object.
-    /// 
+    ///
     /// Panics if creating the reference is invalid or if the range is invalid
     /// for the object.
     template<typename S>
@@ -71,7 +71,7 @@ public:
     }
 
     /// Create slice from reference to the given slicable object.
-    /// 
+    ///
     /// Panics if reference is uninitialized or creating the slice is invalid.
     template<IsOwnedSlice<T> S>
     Slice(
@@ -88,7 +88,7 @@ public:
     }
 
     /// Transfer reference to slicable object to slice.
-    /// 
+    ///
     /// Panics if reference is uninitialized.
     template<IsOwnedSlice<T> S>
     Slice(
@@ -105,7 +105,7 @@ public:
 
 #if BOR_CHECK
     /// Move constructor for slice.
-    /// 
+    ///
     /// Panics if the slice is uninitialized.
     Slice(
         Slice<T> &&other, detail::SourcePos loc = detail::SourcePos::current()
@@ -116,7 +116,7 @@ public:
     }
 
     /// Copy constructor for slice.
-    /// 
+    ///
     /// Panics if the slice is uninitialized.
     Slice(
         const Slice<T> &other,
@@ -128,7 +128,7 @@ public:
     }
 
     /// Move assignment operator for slice.
-    /// 
+    ///
     /// Panics if the slice is uninitialized.
     Slice<T> &operator=(Slice<T> &&other) noexcept {
         panic_if(
@@ -147,7 +147,7 @@ public:
     }
 
     /// Copy assignment operator for slice.
-    /// 
+    ///
     /// Panics if the slice is uninitialized.
     Slice<T> &operator=(const Slice<T> &other) noexcept {
         panic_if(
@@ -174,7 +174,7 @@ public:
 #endif // BOR_CHECK
 
     /// Convert the slice to span.
-    /// 
+    ///
     /// Panics if the slice is uninitialized.
     [[nodiscard]]
     std::span<const T> as_span(
@@ -187,7 +187,7 @@ public:
     }
 
     /// Index into the slice.
-    /// 
+    ///
     /// Panics if the slice is uninitialized or if the index is out of range.
     Ref<T> operator[](std::size_t idx BOR(
         , detail::SourcePos loc = detail::SourcePos::current()
@@ -207,7 +207,7 @@ public:
     }
 
     /// Get subslice of the slice.
-    /// 
+    ///
     /// Panics if the slice is uninitialized or if the range is invalid for the
     /// slice.
     Slice<T> operator[](

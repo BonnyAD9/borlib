@@ -7,7 +7,7 @@
 #include "val_inner.hpp"
 
 #if BOR_CHECK
-#include "counters.hpp"
+# include "counters.hpp"
 #endif
 
 namespace bor {
