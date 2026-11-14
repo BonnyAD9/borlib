@@ -35,9 +35,9 @@ class SourcePos {
     Pos &get_pos() {
         switch (_pos.index()) {
         case 0: {
-            auto idx = std::get<std::size_t>(_pos);
-            auto trace = std::stacktrace::current(idx + 1, 1);
-            auto frame = trace.at(0);
+            const auto idx = std::get<std::size_t>(_pos);
+            const auto trace = std::stacktrace::current(idx + 1, 1);
+            const auto frame = trace.at(0);
             _pos = Pos{
                 .file = frame.source_file(),
                 .line = frame.source_line(),
@@ -46,7 +46,7 @@ class SourcePos {
             break;
         }
         case 1: {
-            auto loc = std::get<std::source_location>(_pos);
+            const auto loc = std::get<std::source_location>(_pos);
             _pos = Pos{
                 .file = loc.file_name(),
                 .line = loc.line(),

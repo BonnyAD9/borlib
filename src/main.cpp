@@ -1,6 +1,7 @@
 #include <exception>
 #include <iostream>
 #include <print>
+#include <vector>
 
 #include "ref.hpp"
 #include "val.hpp"
@@ -53,8 +54,8 @@ static void test_multi_borrow() {
     Val<int> n = 5;
 
     std::println("Creating 3 references.");
-    auto ref1 = &n;
-    auto ref2 = &n;
+    const auto ref1 = &n;
+    const auto ref2 = &n;
     auto ref3 = ref1;
     ref3 = ref1;
     std::println("Values are: {} {} {}", *ref1, *ref2, *ref3);
@@ -116,7 +117,19 @@ static void test_multi_borrow2() {
     std::println("{}", ref);
 }
 
+static void test_slice() {
+    Val<std::vector<int>> vec{ std::vector{ 1, 2, 3, 4, 5 } };
+
+    const auto slice = vec[1, 4];
+
+    std::println("2nd item: {}", slice[1]);
+
+    std::println("4th item: {}", slice[3]); // borrow violation: Sliceout of
+                                            // bounds access 3/3
+}
+
 static void tryout() {
+    test_slice();
     test_dangling();
     test_borrow_escape();
     test_multi_borrow2();

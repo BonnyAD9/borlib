@@ -5,9 +5,15 @@
 #include <utility>
 
 #include "defines.hpp"
+#include "owned_slice.hpp"
 #include "ref.hpp"
 #include "ref_mut.hpp"
+#include "slice.hpp"
 #include "val_inner.hpp"
+
+#if BOR_CHECK
+#include "source_pos.hpp"
+#endif
 
 namespace bor {
 
@@ -199,6 +205,43 @@ public:
     /// Panics if there is any reference to the value.
     Ref<T> operator&() noexcept {
         return ref(BOR(detail::SourcePos::caller2()));
+    }
+
+    /// Get this object as slice.
+    /// 
+    /// Panics if creating the reference is not valid.
+    Slice<typename OwnedSlice<T>::Item> slice(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept
+        requires(IsOwnedSlice<T>)
+    {
+        return { _v BOR(, loc.inc()) };
+    }
+
+    /// Index into the slicable object.
+    /// 
+    /// Panics if creating the reference is not valid or if the index is out of
+    /// range.
+    Ref<typename OwnedSlice<T>::Item> operator[](std::size_t idx BOR(
+        , detail::SourcePos loc = detail::SourcePos::current()
+    )) noexcept
+        requires(IsOwnedSlice<T>)
+    {
+        return { _v, idx BOR(, loc.inc()) };
+    }
+
+    /// Get subslice of the slicable object.
+    /// 
+    /// Panics if creating the reference is not valid or if the range is not
+    /// valid for the object.
+    Slice<typename OwnedSlice<T>::Item> operator[](
+        std::size_t start,
+        std::size_t end
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept
+        requires(IsOwnedSlice<T>)
+    {
+        return { _v, start, end BOR(, loc.inc()) };
     }
 
 #if BOR_CHECK

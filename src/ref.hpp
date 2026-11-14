@@ -3,15 +3,20 @@
 #include <format>
 
 #include "defines.hpp"
+#include "owned_slice.hpp"
 #include "val_inner.hpp"
 
 #if BOR_CHECK
 # include "err.hpp"
+#include "source_pos.hpp"
+#include "counters.hpp"
 #endif
 
 namespace bor {
 
 template<typename T> class RefMut;
+template<typename T> class Slice;
+template<typename T> class Val;
 
 /// Safe reference.
 ///
@@ -19,10 +24,19 @@ template<typename T> class RefMut;
 /// referenced value while the reference exists.
 template<typename T> class Ref {
     friend RefMut<T>;
+    friend Slice<T>;
+    friend Val<T>;
 
-    detail::ValInner<T> *_r{ nullptr };
+    const T *_r{ nullptr };
+#if BOR_CHECK
+    detail::Counters *_cnts{ nullptr };
+#endif
 
-    constexpr Ref(detail::ValInner<T> *val) noexcept : _r(val) { }
+    constexpr Ref(detail::ValInner<T> *val) noexcept :
+        _r(&val->value) BOR(, _cnts(&val->cnts)) { }
+
+    constexpr Ref(const T *r BOR(, detail::Counters *cnts)) :
+        _r(r) BOR(, _cnts(cnts)) { }
 
 public:
     /// Create uninitialized reference.
@@ -36,9 +50,28 @@ public:
     ///
     /// Panics if creating the reference is not valid.
     Ref(detail::ValInner<T> &val BOR(, detail::SourcePos loc)) noexcept :
-        _r(&val) {
+        _r(&val.value) BOR(, _cnts(&val.cnts)) {
 #if BOR_CHECK
         val.cnts.create_ref(loc.inc());
+#endif
+    }
+
+    /// Get reference to an item owned by the given slicable type at the given
+    /// index.
+    /// 
+    /// Panics if creating the reference is not valid or if the index is out of
+    /// bounds.
+    template<typename S>
+    Ref(detail::ValInner<S> &val,
+        std::size_t idx BOR(, detail::SourcePos loc)) noexcept
+        requires(IsOwnedSlice<S, T>)
+        : _r(OwnedSlice<S>().data(val.value) + idx) BOR(, _cnts(&val.cnts)) {
+#if BOR_CHECK
+        auto len = OwnedSlice<S>().len(val.value);
+        detail::panic_if(
+            idx >= len, loc.inc(), "Index out of bounds {}/{}.", idx, len
+        );
+        _cnts->create_ref(loc.inc());
 #endif
     }
 
@@ -49,7 +82,7 @@ public:
     /// Panics if the other reference is uninitialized.
     Ref(Ref<T> &&other,
         detail::SourcePos loc = detail::SourcePos::current()) noexcept :
-        _r(other._r) {
+        _r(other._r), _cnts(other._cnts) {
         panic_if(!_r, loc.inc(), "Cannot move uninitialized reference.");
         other._r = nullptr;
     }
@@ -59,9 +92,9 @@ public:
     /// Panics if the other reference is uninitialized.
     Ref(const Ref<T> &other,
         detail::SourcePos loc = detail::SourcePos::current()) noexcept :
-        _r(other._r) {
+        _r(other._r), _cnts(other._cnts) {
         panic_if(!_r, loc.inc(), "Cannot copy uninitialized reference.");
-        _r->cnts.add_ref();
+        _cnts->add_ref();
     }
 
     /// Move assignment operator of reference. The other reference will be made
@@ -75,9 +108,10 @@ public:
             "Cannot move uninitialized reference."
         );
         if (_r) {
-            _r->cnts.remove_ref();
+            _cnts->remove_ref();
         }
         _r = other._r;
+        _cnts = other._cnts;
         other._r = nullptr;
         return *this;
     }
@@ -95,10 +129,11 @@ public:
             return *this;
         }
         if (_r) {
-            _r->cnts.remove_ref();
+            _cnts->remove_ref();
         }
-        _r->cnts.add_ref();
         _r = other._r;
+        _cnts = other._cnts;
+        _cnts->add_ref();
         return *this;
     }
 #else
@@ -118,7 +153,7 @@ public:
 #if BOR_CHECK
         panic_if(!_r, loc.inc(), "Cannot access uninitialized reference.");
 #endif
-        return _r->value;
+        return *_r;
     }
 
     /// Get the referenced value.
@@ -135,11 +170,30 @@ public:
         return &get(BOR(detail::SourcePos::caller2()));
     }
 
+    /// Index into the object in this slice.
+    /// 
+    /// Panics if the reference is invalid or if the index is out of range.
+    Ref<typename OwnedSlice<T>::Item> operator[](std::size_t idx BOR(
+        , detail::SourcePos loc = detail::SourcePos::current()
+    )) const noexcept
+        requires(IsOwnedSlice<T>)
+    {
+#if BOR_CHECK
+        panic_if(
+            !_r, loc.inc(), "Cannot index uninitialized reference as slice."
+        );
+        auto len = OwnedSlice<T>().len(*_r);
+        panic_if(idx >= len, "Index out of range {}/{}", idx, len);
+        _cnts->add_ref();
+#endif
+        return { OwnedSlice<T>().data(*_r) + idx BOR(, _cnts) };
+    }
+
 #if BOR_CHECK
     /// Destroy the reference.
     ~Ref() noexcept {
         if (_r) {
-            _r->cnts.remove_ref();
+            _cnts->remove_ref();
             _r = nullptr;
         }
     }

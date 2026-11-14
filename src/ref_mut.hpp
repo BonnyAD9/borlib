@@ -6,18 +6,27 @@
 #include "ref.hpp"
 #include "val_inner.hpp"
 
+#if BOR_CHECK
+#include "counters.hpp"
+#endif
+
 namespace bor {
 
 /// Mutable safe reference.
 ///
 /// This reference checks that noone else can access the referenced value.
 template<typename T> class RefMut {
-    detail::ValInner<T> *_r{ nullptr };
+    T *_r{ nullptr };
 #if BOR_CHECK
+    detail::Counters *_cnts{ nullptr };
     bool _borrowed = false;
 #endif
 
-    constexpr RefMut(detail::ValInner<T> *val) noexcept : _r(val) { }
+    constexpr RefMut(detail::ValInner<T> *val) noexcept :
+        _r(val) BOR(, _cnts(&val->cnts)) { }
+
+    constexpr RefMut(T *r BOR(, detail::Counters *cnts)) :
+        _r(r) BOR(, _cnts(cnts)) { }
 
 public:
     /// Constructs uninitialized reference.
@@ -31,7 +40,7 @@ public:
     ///
     /// Panics if creating the mutable reference is invalid.
     RefMut(detail::ValInner<T> &val BOR(, detail::SourcePos loc)) noexcept :
-        _r(&val) {
+        _r(&val.value) BOR(, _cnts(&val.cnts)) {
 #if BOR_CHECK
         val.cnts.create_ref_mut(loc.inc());
 #endif
@@ -45,7 +54,7 @@ public:
         RefMut<T> &&other
             BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept :
-        _r(other._r) {
+        _r(other._r) BOR(, _cnts(other._cnts)) {
 #if BOR_CHECK
         panic_if(
             !_r, loc.inc(), "Cannot move uninitialized mutable reference."
@@ -79,9 +88,10 @@ public:
             "Cannot move borroed mutable reference."
         );
         if (_r) {
-            _r->cnts.remove_ref_mut();
+            _cnts->remove_ref_mut();
         }
         _borrowed = false;
+        _cnts = other._cnts;
 #endif
         _r = other._r;
         other._r = nullptr;
@@ -105,7 +115,7 @@ public:
             _borrowed, loc.inc(), "Cannot access borrowed mutable reference."
         );
 #endif
-        return _r->value;
+        return *_r;
     }
 
     /// Get access to the underlaying value.
@@ -135,7 +145,7 @@ public:
 #endif
         auto r = _r;
         _r = nullptr;
-        return { r };
+        return { r BOR(, _cnts) };
     }
 
     /// Implicit conversion of rvalue of this reference to immutable reference.
@@ -163,15 +173,15 @@ public:
         panic_if(
             !_r, loc.inc(), "Cannot borrow uninitialized mutable reference."
         );
-        auto cnt = _r->cnts.ref_cnt();
-        _r->cnts.add_ref();
+        const auto cnt = _cnts->ref_cnt();
+        _cnts->add_ref();
         _borrowed = true;
 #endif
-        R res = f(Ref(_r));
+        R res = f(Ref(_r BOR(, _cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _r->cnts.ref_cnt() != cnt,
+            _cnts->ref_cnt() != cnt,
             loc.inc(),
             "Borrowed reference escaped its lifetime."
         );
@@ -196,15 +206,15 @@ public:
         panic_if(
             !_r, loc.inc(), "Cannot borrow uninitialized mutable reference."
         );
-        auto cnt = _r->cnts.ref_cnt();
-        _r->cnts.add_ref();
+        const auto cnt = _cnts->ref_cnt();
+        _cnts->add_ref();
         _borrowed = true;
 #endif
-        f(Ref(_r));
+        f(Ref(_r BOR(, _cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _r->cnts.ref_cnt() != cnt,
+            _cnts->ref_cnt() != cnt,
             loc.inc(),
             "Borrowed reference escaped its lifetime."
         );
@@ -233,15 +243,15 @@ public:
         panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        auto cnt = _r->cnts.ref_cnt();
-        _r->cnts.add_ref();
+        auto cnt = _cnts->ref_cnt();
+        _cnts->add_ref();
         _borrowed = true;
 #endif
-        R r = f(RefMut(_r));
+        R r = f(RefMut(_r BOR(, _cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _r->cnts.ref_cnt() != cnt,
+            _cnts->ref_cnt() != cnt,
             loc.inc(),
             "Borrowed mutable reference escaped its lifetime."
         );
@@ -268,15 +278,15 @@ public:
         panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        auto cnt = _r->cnts.ref_cnt();
-        _r->cnts.add_ref();
+        auto cnt = _cnts->ref_cnt();
+        _cnts->add_ref();
         _borrowed = true;
 #endif
-        f(RefMut(_r));
+        f(RefMut(_r BOR(, _cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _r->cnts.ref_cnt() != cnt,
+            _cnts->ref_cnt() != cnt,
             loc.inc(),
             "Borrowed mutable reference escaped its lifetime."
         );
@@ -287,7 +297,7 @@ public:
     /// Destroy the mutable reference.
     ~RefMut() {
         if (_r) {
-            _r->cnts.remove_ref_mut();
+            _cnts->remove_ref_mut();
             _r = nullptr;
         }
     }
