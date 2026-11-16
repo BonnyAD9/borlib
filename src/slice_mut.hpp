@@ -12,6 +12,7 @@
 
 namespace bor {
 
+/// A mutable slice of data.
 template<typename T> class SliceMut {
     T *_r{ nullptr };
     std::size_t _len{ 0 };
@@ -25,8 +26,12 @@ template<typename T> class SliceMut {
         _r(r), _len(len) BOR(, _cnts(cnts)) { }
 
 public:
+    /// Create uninitialized slice of data.
     constexpr SliceMut() = default;
 
+    /// Create mutable slice from the given slicable object.
+    ///
+    /// Panics if creating a mutable reference is invalid.
     template<IsOwnedSlice<T> S>
     SliceMut(detail::ValInner<S> &val BOR(, detail::SourcePos loc)) noexcept :
         _r(OwnedSlice<S>().data_mut(val.value)),
@@ -36,6 +41,10 @@ public:
 #endif
     }
 
+    /// Create subslice from the given slicable object.
+    ///
+    /// Panics if the range is invalid or if creating a mutable reference is
+    /// invalid.
     template<typename S>
     SliceMut(
         detail::ValInner<S> &val,
@@ -62,6 +71,9 @@ public:
 #endif
     }
 
+    /// Convert the mutable reference to slicable object to a slice.
+    ///
+    /// Panics if the reference is invalid or borrowed.
     template<IsOwnedSlice<T> S>
     SliceMut(
         RefMut<S> &&ref
@@ -82,6 +94,9 @@ public:
         ref._r = nullptr;
     }
 
+    /// Move the slice.
+    ///
+    /// Panics if the other slice is invalid or borrowed.
     SliceMut(
         SliceMut<T> &&other
             BOR(, detail::SourcePos loc = detail::SourcePos::current())
@@ -102,6 +117,9 @@ public:
         "Mutable slice cannot be copied. Consider using SliceMut::borrow_mut."
     );
 
+    /// Move teh slice.
+    ///
+    /// Panics if the other slice is invalid or borrowed.
     SliceMut &operator=(SliceMut<T> &&other) noexcept {
 #if BOR_CHECK
         panic_if(
@@ -129,6 +147,9 @@ public:
         "Mutable slice cannot be copied. Consider using SliceMut::borrow_mut."
     );
 
+    /// Get the length of the slice.
+    ///
+    /// Panics if this slice is invalid or borrowed.
     [[nodiscard]]
     std::size_t len(
         BOR(detail::SourcePos loc = detail::SourcePos::current())
@@ -142,6 +163,7 @@ public:
         return _len;
     }
 
+    /// Get span of the data inside the slice.
     [[nodiscard]]
     std::span<T> as_span(
         BOR(detail::SourcePos loc = detail::SourcePos::current())
@@ -155,6 +177,10 @@ public:
         return { _r, _len };
     }
 
+    /// Convert this slice to a reference to object at the given index.
+    ///
+    /// Panics if the slice is unintialized or borrowed or if the index is out
+    /// of bounds.
     RefMut<T> operator[](std::size_t idx BOR(
         , detail::SourcePos loc = detail::SourcePos::current()
     )) const && noexcept {
@@ -176,6 +202,10 @@ public:
         return { r + idx BOR(, _cnts) };
     }
 
+    /// Index into the slice.
+    ///
+    /// Panics if the slice is unintialized or borrowed or if the index is out
+    /// of bounds.
     T &operator[](std::size_t idx BOR(
         , detail::SourcePos loc = detail::SourcePos::current()
     )) const & noexcept {
@@ -195,6 +225,10 @@ public:
         return _r[idx];
     }
 
+    /// Convert the mutable slice into a subslice.
+    ///
+    /// Panics if the slice is unintialized or borrowed or if the range is
+    /// invalid.
     SliceMut<T> operator[](
         std::size_t start,
         std::size_t end
@@ -221,6 +255,9 @@ public:
         return { r + start, end - start BOR(, _cnts) };
     }
 
+    /// Convert the mutable slice into immutable slice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed.
     Slice<T> into_slice(
         BOR(detail::SourcePos loc = detail::SourcePos::current())
     ) {
@@ -238,10 +275,17 @@ public:
         return { r BOR(, _cnts) };
     }
 
+    /// Convert the mutable slice into immutable slice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed.
     operator Slice<T>(this SliceMut<T> &&self) {
         return self.into_slice(BOR(detail::SourcePos::caller2()));
     }
 
+    /// Immutably borrow value at the given index.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the index is out
+    /// of range or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow(
         F f,
@@ -283,6 +327,10 @@ public:
         return res;
     }
 
+    /// Immutably borrow the slice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the borrowed
+    /// value escapes the closure.
     template<typename R, typename F>
     R borrow(F f BOR(, detail::SourcePos loc = detail::SourcePos::current()))
         requires(
@@ -313,6 +361,10 @@ public:
         return res;
     }
 
+    /// Immutably borrow subslice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the range is
+    /// invalid or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow(
         F f,
@@ -362,6 +414,10 @@ public:
         return res;
     }
 
+    /// Immutably borrow value at the given index.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the index is out
+    /// of range or if the borrowed value escapes the closure.
     template<typename F>
     void borrow(
         F f,
@@ -399,6 +455,10 @@ public:
 #endif
     }
 
+    /// Immutably borrow the slice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the borrowed
+    /// value escapes the closure.
     template<typename F>
     void borrow(
         F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
@@ -427,6 +487,10 @@ public:
 #endif
     }
 
+    /// Immutably orrow subslice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the range is
+    /// invalid or if the borrowed value escapes the closure.
     template<typename F>
     void borrow(
         F f,
@@ -472,6 +536,10 @@ public:
 #endif
     }
 
+    /// Borrow value at the given index.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the index is out
+    /// of range or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow_mut(
         F f,
@@ -513,6 +581,10 @@ public:
         return res;
     }
 
+    /// Borrow the slice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the borrowed
+    /// value escapes the closure.
     template<typename R, typename F>
     R borrow_mut(
         F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
@@ -545,6 +617,10 @@ public:
         return res;
     }
 
+    /// Borrow subslice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the range is
+    /// invalid or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow_mut(
         F f,
@@ -594,6 +670,10 @@ public:
         return res;
     }
 
+    /// Borrow value at the given index.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the index is out
+    /// of range or if the borrowed value escapes the closure.
     template<typename F>
     void borrow_mut(
         F f,
@@ -631,6 +711,10 @@ public:
 #endif
     }
 
+    /// Borrow the slice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the borrowed
+    /// value escapes the closure.
     template<typename F>
     void borrow_mut(
         F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
@@ -659,6 +743,10 @@ public:
 #endif
     }
 
+    /// Borrow subslice.
+    ///
+    /// Panics if the slice is uninitialized or borrowed or if the range is
+    /// invalid or if the borrowed value escapes the closure.
     template<typename F>
     void borrow_mut(
         F f,

@@ -50,6 +50,13 @@ public:
 #endif
     }
 
+    /// Inner constructor for the mutable reference from slicable object at the
+    /// given index. Checks that the index is within bounds and that
+    /// constructing the mutable reference is valid and modifies the counters
+    /// accordingly.
+    ///
+    /// Panics if the index is out of bounds or if creating the mutable
+    /// reference is invalid.
     template<typename S>
     RefMut(
         detail::ValInner<S> &val, std::size_t idx BOR(, detail::SourcePos loc)

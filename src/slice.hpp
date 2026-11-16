@@ -173,6 +173,9 @@ public:
     Slice &operator=(const Slice<T> &) = default;
 #endif // BOR_CHECK
 
+    /// Get the number of items in the slice.
+    ///
+    /// Panics if the slice is uninitialized.
     [[nodiscard]]
     std::size_t len(
         BOR(detail::SourcePos loc = detail::SourcePos::current())
