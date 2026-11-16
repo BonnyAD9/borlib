@@ -264,9 +264,11 @@ static void test_full_val() {
     assert(std::format("{}", v1) == "13");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static void test_full_ref() {
     {
         const Ref<int> r;
+        assert(!r);
     }
 
     Val<int> val = 5;
@@ -279,6 +281,8 @@ static void test_full_ref() {
     r1 = r2;
     r2 = std::move(r1);
 
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    assert(!r1);
     assert(*r2 == 5);
     assert(r2.get() == 5);
     assert(r2.operator->() == &r2.get());
@@ -306,6 +310,7 @@ static void test_full_ref() {
 static void test_full_ref_mut() {
     {
         const RefMut<int> r;
+        assert(!r);
     }
 
     Val<int> val = 5;
@@ -348,6 +353,8 @@ static void test_full_ref_mut() {
 
         r1 = std::move(r2);
 
+        // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+        assert(!r2);
         assert(r1.get() == 13);
 
         r1.get() = 17;
@@ -356,6 +363,8 @@ static void test_full_ref_mut() {
 
         const auto r3 = r1.into_ref();
 
+        // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+        assert(!r2);
         assert(*r3 == 17);
     }
 

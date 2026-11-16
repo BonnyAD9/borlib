@@ -129,6 +129,12 @@ public:
         delete ("Mutable reference cannot be copied. Consider using "
                 "RefMut::borrow_mut.");
 
+    /// Check whether the reference is initialized.
+    [[nodiscard]]
+    constexpr operator bool() const noexcept {
+        return _r;
+    }
+
     /// Get access to the underlaying value.
     ///
     /// Panics if the reference is uninitialized or currently borrowed.

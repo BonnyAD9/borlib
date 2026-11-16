@@ -148,6 +148,12 @@ public:
     Ref<T> &operator=(const Ref<T> &) = default;
 #endif // BOR_CHECK
 
+    /// Check whether the reference is initialized.
+    [[nodiscard]]
+    constexpr operator bool() const noexcept {
+        return _r;
+    }
+
     /// Get the referenced value.
     ///
     /// Panics if the reference is uninitialized.

@@ -147,6 +147,12 @@ public:
         "Mutable slice cannot be copied. Consider using SliceMut::borrow_mut."
     );
 
+    /// Check whether the slice is initialized.
+    [[nodiscard]]
+    constexpr operator bool() const noexcept {
+        return _r;
+    }
+
     /// Get the length of the slice.
     ///
     /// Panics if this slice is invalid or borrowed.
