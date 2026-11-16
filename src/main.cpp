@@ -128,7 +128,22 @@ static void test_slice() {
                                             // bounds access 3/3
 }
 
+static void test_slice_mut() {
+    Val<std::vector<int>> vec{ std::vector{ 1, 2, 3, 4, 5 } };
+
+    const auto slice = vec.slice_mut(1, 4);
+
+    slice[1] = 9;
+
+    std::println("2nd item: {}", slice[1]);
+
+    std::println("4th item: {}", vec[3]); // borrow violation: Cannot borrow
+                                          // value that is already borrowed
+                                          // mutably.
+}
+
 static void tryout() {
+    test_slice_mut();
     test_slice();
     test_dangling();
     test_borrow_escape();

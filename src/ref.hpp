@@ -83,7 +83,9 @@ public:
     Ref(Ref<T> &&other,
         detail::SourcePos loc = detail::SourcePos::current()) noexcept :
         _r(other._r), _cnts(other._cnts) {
-        panic_if(!_r, loc.inc(), "Cannot move uninitialized reference.");
+        detail::panic_if(
+            !_r, loc.inc(), "Cannot move uninitialized reference."
+        );
         other._r = nullptr;
     }
 
@@ -93,7 +95,9 @@ public:
     Ref(const Ref<T> &other,
         detail::SourcePos loc = detail::SourcePos::current()) noexcept :
         _r(other._r), _cnts(other._cnts) {
-        panic_if(!_r, loc.inc(), "Cannot copy uninitialized reference.");
+        detail::panic_if(
+            !_r, loc.inc(), "Cannot copy uninitialized reference."
+        );
         _cnts->add_ref();
     }
 
@@ -102,7 +106,7 @@ public:
     ///
     /// Panics if the other reference is uninitialized.
     Ref<T> &operator=(Ref<T> &&other) noexcept {
-        panic_if(
+        detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot move uninitialized reference."
@@ -120,7 +124,7 @@ public:
     ///
     /// Panics if the other reference is uninitialized.
     Ref<T> &operator=(const Ref<T> &other) noexcept {
-        panic_if(
+        detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot copy uninitialized reference."
@@ -151,7 +155,9 @@ public:
         BOR(detail::SourcePos loc = detail::SourcePos::current())
     ) const noexcept {
 #if BOR_CHECK
-        panic_if(!_r, loc.inc(), "Cannot access uninitialized reference.");
+        detail::panic_if(
+            !_r, loc.inc(), "Cannot access uninitialized reference."
+        );
 #endif
         return *_r;
     }
@@ -179,7 +185,7 @@ public:
         requires(IsOwnedSlice<T>)
     {
 #if BOR_CHECK
-        panic_if(
+        detail::panic_if(
             !_r, loc.inc(), "Cannot index uninitialized reference as slice."
         );
         auto len = OwnedSlice<T>().len(*_r);

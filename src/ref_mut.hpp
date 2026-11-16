@@ -12,10 +12,14 @@
 
 namespace bor {
 
+template<typename T> class SliceMut;
+
 /// Mutable safe reference.
 ///
 /// This reference checks that noone else can access the referenced value.
 template<typename T> class RefMut {
+    friend SliceMut<T>;
+
     T *_r{ nullptr };
 #if BOR_CHECK
     detail::Counters *_cnts{ nullptr };
@@ -56,10 +60,10 @@ public:
     ) noexcept :
         _r(other._r) BOR(, _cnts(other._cnts)) {
 #if BOR_CHECK
-        panic_if(
+        detail::panic_if(
             !_r, loc.inc(), "Cannot move uninitialized mutable reference."
         );
-        panic_if(
+        detail::panic_if(
             other._borrowed,
             loc.inc(),
             "Cannot move borroed mutable reference."
@@ -77,12 +81,12 @@ public:
     /// Panics if the other reference is uninitialized or currently borrowed.
     RefMut &operator=(RefMut<T> &&other) noexcept {
 #if BOR_CHECK
-        panic_if(
+        detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot move uninitialized mutable reference."
         );
-        panic_if(
+        detail::panic_if(
             other._borrowed,
             detail::SourcePos::caller2(),
             "Cannot move borroed mutable reference."
@@ -108,10 +112,10 @@ public:
     [[nodiscard]]
     T &get(BOR(detail::SourcePos loc = detail::SourcePos::current())) const {
 #if BOR_CHECK
-        panic_if(
+        detail::panic_if(
             !_r, loc.inc(), "Cannot access uninitialized mutable reference."
         );
-        panic_if(
+        detail::panic_if(
             _borrowed, loc.inc(), "Cannot access borrowed mutable reference."
         );
 #endif
@@ -135,13 +139,13 @@ public:
         BOR(detail::SourcePos loc = detail::SourcePos::current())
     ) {
 #if BOR_CHECK
-        panic_if(
+        detail::panic_if(
             !_r, loc.inc(), "Cannot transfer uninitialized mutable reference."
         );
-        panic_if(
+        detail::panic_if(
             _borrowed, loc.inc(), "Cannot access borrowed mutable reference."
         );
-        _r->cnts.transfer_mut_to_ref();
+        _cnts->transfer_mut_to_ref();
 #endif
         auto r = _r;
         _r = nullptr;
@@ -167,11 +171,11 @@ public:
         )
     {
 #if BOR_CHECK
-        panic_if(
-            _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
-        );
-        panic_if(
+        detail::panic_if(
             !_r, loc.inc(), "Cannot borrow uninitialized mutable reference."
+        );
+        detail::panic_if(
+            _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
         const auto cnt = _cnts->ref_cnt();
         _cnts->add_ref();
@@ -180,7 +184,7 @@ public:
         R res = f(Ref(_r BOR(, _cnts)));
 #if BOR_CHECK
         _borrowed = false;
-        panic_if(
+        detail::panic_if(
             _cnts->ref_cnt() != cnt,
             loc.inc(),
             "Borrowed reference escaped its lifetime."

@@ -33,8 +33,8 @@ public:
     /// Panics if the creating the reference is invalid.
     template<IsOwnedSlice<T> S>
     Slice(detail::ValInner<S> &val BOR(, detail::SourcePos loc)) noexcept :
-        _r(OwnedSlice<S>(val.value).data()),
-        _len(OwnedSlice<S>(val.value).len()) BOR(, _cnts(&val.cnts)) {
+        _r(OwnedSlice<S>().data(val.value)),
+        _len(OwnedSlice<S>().len(val.value)) BOR(, _cnts(&val.cnts)) {
 #if BOR_CHECK
         val.cnts.create_ref(loc.inc());
 #endif
@@ -78,8 +78,8 @@ public:
         const Ref<S> &ref
             BOR(, detail::SourcePos loc = detail::SourcePos::caller())
     ) noexcept :
-        _r(OwnedSlice<S>(ref.get(BOR(loc.inc()))).data()),
-        _len(OwnedSlice<S>(ref.get(BOR(loc.inc()))).len()) BOR(
+        _r(OwnedSlice<S>().data(ref.get(BOR(loc.inc())))),
+        _len(OwnedSlice<S>().len(ref.get(BOR(loc.inc())))) BOR(
             , _cnts(ref._cnts)
         ) {
 #if BOR_CHECK
@@ -111,7 +111,7 @@ public:
         Slice<T> &&other, detail::SourcePos loc = detail::SourcePos::current()
     ) noexcept :
         _r(other._r), _len(other._len), _cnts(other._cnts) {
-        panic_if(!_r, loc.inc(), "Cannot copy uninitialized slice.");
+        detail::panic_if(!_r, loc.inc(), "Cannot copy uninitialized slice.");
         other._r = nullptr;
     }
 
@@ -123,7 +123,7 @@ public:
         detail::SourcePos loc = detail::SourcePos::current()
     ) noexcept :
         _r(other._r), _len(other._len), _cnts(other._cnts) {
-        panic_if(!_r, loc.inc(), "Cannot move uninitialized slice.");
+        detail::panic_if(!_r, loc.inc(), "Cannot move uninitialized slice.");
         _cnts->add_ref();
     }
 
@@ -131,7 +131,7 @@ public:
     ///
     /// Panics if the slice is uninitialized.
     Slice<T> &operator=(Slice<T> &&other) noexcept {
-        panic_if(
+        detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot move uninitialized reference."
@@ -150,7 +150,7 @@ public:
     ///
     /// Panics if the slice is uninitialized.
     Slice<T> &operator=(const Slice<T> &other) noexcept {
-        panic_if(
+        detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot copy uninitialized slice."
@@ -181,7 +181,7 @@ public:
         BOR(detail::SourcePos loc = detail::SourcePos::current())
     ) const noexcept {
 #if BOR_CHECK
-        panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
+        detail::panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
 #endif
         return { _r, _len };
     }
@@ -193,8 +193,8 @@ public:
         , detail::SourcePos loc = detail::SourcePos::current()
     )) const noexcept {
 #if BOR_CHECK
-        panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
-        panic_if(
+        detail::panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
+        detail::panic_if(
             idx >= _len,
             loc.inc(),
             "Slice out of bounds access {}/{}.",
@@ -216,9 +216,11 @@ public:
             BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) const noexcept {
 #if BOR_CHECK
-        panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
-        panic_if(start > end, loc.inc(), "Range start is larger than end.");
-        panic_if(
+        detail::panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
+        detail::panic_if(
+            start > end, loc.inc(), "Range start is larger than end."
+        );
+        detail::panic_if(
             end >= _len,
             loc.inc(),
             "Slice out of bounds access {}/{}.",

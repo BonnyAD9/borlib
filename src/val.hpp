@@ -9,6 +9,7 @@
 #include "ref.hpp"
 #include "ref_mut.hpp"
 #include "slice.hpp"
+#include "slice_mut.hpp"
 #include "val_inner.hpp"
 
 #if BOR_CHECK
@@ -235,6 +236,33 @@ public:
     /// Panics if creating the reference is not valid or if the range is not
     /// valid for the object.
     Slice<typename OwnedSlice<T>::Item> operator[](
+        std::size_t start,
+        std::size_t end
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept
+        requires(IsOwnedSlice<T>)
+    {
+        return { _v, start, end BOR(, loc.inc()) };
+    }
+
+    SliceMut<typename OwnedSlice<T>::Item> slice_mut(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept
+        requires(IsOwnedSlice<T>)
+    {
+        return { _v BOR(, loc.inc()) };
+    }
+
+    RefMut<typename OwnedSlice<T>::Item> index_mut(
+        std::size_t idx
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    ) noexcept
+        requires(IsOwnedSlice<T>)
+    {
+        return { _v, idx BOR(, loc.inc()) };
+    }
+
+    SliceMut<typename OwnedSlice<T>::Item> slice_mut(
         std::size_t start,
         std::size_t end
             BOR(, detail::SourcePos loc = detail::SourcePos::current())
