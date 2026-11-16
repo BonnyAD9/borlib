@@ -302,9 +302,106 @@ static void test_full_ref() {
     assert(std::format("{}", r2) == "5");
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+static void test_full_ref_mut() {
+    {
+        const RefMut<int> r;
+    }
+
+    Val<int> val = 5;
+
+    {
+        auto r = val.ref_mut();
+        *r = 7;
+    }
+
+    assert(val == 7);
+
+    Val<std::vector<int>> vec{ std::vector{
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6,
+        5,
+        3,
+        5,
+    } };
+
+    {
+        auto r = vec.index_mut(6);
+        assert(*r == 2);
+        *r = 11;
+    }
+
+    assert(*vec[6] == 11);
+
+    {
+        auto r1 = val.ref_mut();
+        RefMut<int> r2{ std::move(r1) };
+
+        assert(*r2 == 7);
+        *r2 = 13;
+
+        r1 = std::move(r2);
+
+        assert(r1.get() == 13);
+
+        r1.get() = 17;
+
+        assert(*r1.operator->() == 17);
+
+        const auto r3 = r1.into_ref();
+
+        assert(*r3 == 17);
+    }
+
+    assert(val == 17);
+
+    {
+        const Ref<int> r = val.ref_mut();
+        assert(*r == 17);
+    }
+
+    {
+        auto r = val.ref_mut();
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        auto res = r.borrow<int>([](auto br) {
+            const Ref<int> br2 = br;
+            return *br * 2;
+        });
+
+        assert(res == 34);
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        r.borrow([](auto br) { assert(*br == 17); });
+
+        res = r.borrow_mut<int>([](auto br) {
+            const auto rv = *br * 2;
+            *br = 19;
+            return rv;
+        });
+
+        assert(res == 34);
+        assert(*r == 19);
+
+        r.borrow_mut([](auto br) { *br = 23; });
+
+        assert(*r == 23);
+        assert(std::format("{}", r) == "23");
+    }
+
+    assert(val == 23);
+}
+
 static void test_no_panic() {
     test_full_val();
     test_full_ref();
+    test_full_ref_mut();
 }
 
 } // namespace bor

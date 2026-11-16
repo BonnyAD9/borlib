@@ -253,7 +253,7 @@ public:
     /// Panics if the reference is uninitialized, currently borrowed or if the
     /// new borrowed reference outlives execution of the closure.
     template<typename R, typename F>
-    void borrow_mut(
+    R borrow_mut(
         F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(
@@ -270,7 +270,7 @@ public:
         panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        auto cnt = _cnts->ref_cnt();
+        const auto cnt = _cnts->ref_cnt();
         _cnts->add_ref();
         _borrowed = true;
 #endif
@@ -305,7 +305,7 @@ public:
         panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        auto cnt = _cnts->ref_cnt();
+        const auto cnt = _cnts->ref_cnt();
         _cnts->add_ref();
         _borrowed = true;
 #endif
