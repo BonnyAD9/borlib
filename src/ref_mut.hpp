@@ -50,6 +50,22 @@ public:
 #endif
     }
 
+    template<typename S>
+    RefMut(
+        detail::ValInner<S> &val, std::size_t idx BOR(, detail::SourcePos loc)
+    ) noexcept
+        requires(IsOwnedSlice<S, T>)
+        :
+        _r(OwnedSlice<S>().data_mut(val.value) + idx) BOR(, _cnts(&val.cnts)) {
+#if BOR_CHECK
+        auto len = OwnedSlice<S>().len(val.value);
+        detail::panic_if(
+            idx >= len, loc.inc(), "Index out of bounds {}/{}", idx, len
+        );
+        _cnts->create_ref_mut(loc.inc());
+#endif
+    }
+
     /// Move constructor for mutable referece. The other reference is made
     /// uninitialized.
     ///

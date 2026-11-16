@@ -23,7 +23,8 @@ Checks: '
   -readability-implicit-bool-conversion,
   -readability-named-parameter,
   -readability-magic-numbers,
-  -misc-explicit-constructor'
+  -misc-explicit-constructor,
+  -misc-static-assert'
 FormatStyle: file
 
 CheckOptions:

@@ -159,7 +159,7 @@ public:
 
     /// Removes mutable reference.
     void remove_ref_mut() noexcept {
-        if (_ref.fetch_sub(1, std::memory_order_release) == 0) {
+        if (_ref.fetch_sub(1, std::memory_order_release) == 1) {
             _mut.store(false, std::memory_order_release);
         }
     }

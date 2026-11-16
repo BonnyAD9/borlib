@@ -130,6 +130,19 @@ public:
     );
 
     [[nodiscard]]
+    std::size_t len(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) const {
+#if BOR_CHECK
+        panic_if(!_r, loc.inc(), "Cannot access uninitialized mutable slice.");
+        panic_if(
+            _borrowed, loc.inc(), "Cannot access borrowed mutable slice."
+        );
+#endif
+        return _len;
+    }
+
+    [[nodiscard]]
     std::span<T> as_span(
         BOR(detail::SourcePos loc = detail::SourcePos::current())
     ) const noexcept {

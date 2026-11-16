@@ -136,7 +136,7 @@ public:
     ) noexcept
         requires(std::is_move_assignable_v<T>)
     {
-        get(BOR(loc.inc())) = std::move(other);
+        get_mut(BOR(loc.inc())) = std::move(other);
     }
 
     /// Copy the value.

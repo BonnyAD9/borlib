@@ -173,6 +173,16 @@ public:
     Slice &operator=(const Slice<T> &) = default;
 #endif // BOR_CHECK
 
+    [[nodiscard]]
+    std::size_t len(
+        BOR(detail::SourcePos loc = detail::SourcePos::current())
+    ) const {
+#if BOR_CHECK
+        detail::panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
+#endif
+        return _len;
+    }
+
     /// Convert the slice to span.
     ///
     /// Panics if the slice is uninitialized.

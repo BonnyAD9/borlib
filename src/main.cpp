@@ -1,3 +1,4 @@
+#include <cassert>
 #include <exception>
 #include <iostream>
 #include <print>
@@ -10,6 +11,7 @@ namespace bor {
 
 static void start();
 static void tryout();
+static void test_no_panic();
 
 } // namespace bor
 
@@ -142,7 +144,7 @@ static void test_slice_mut() {
                                           // mutably.
 }
 
-static void tryout() {
+static void test_panic() {
     test_slice_mut();
     test_slice();
     test_dangling();
@@ -151,6 +153,107 @@ static void tryout() {
     test_borrow_infiltrate();
     test_read_mut();
     test_multi_borrow();
+}
+
+static void tryout() {
+    test_no_panic();
+    test_panic();
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+static void test_full_val() {
+    Val<int> v1;
+    Val<int> v2{ 5 };
+    Val<int> v3{ v2 };
+    Val<int> v4{ std::move(v3) };
+
+    assert(v2 == 5);
+    assert(v4 == 5);
+
+    v1 = std::move(v2);
+    v2 = v1;
+
+    assert(v1 == 5);
+    assert(v2 == 5);
+
+    v2.set(7);
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    v3.set(std::move(v1));
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    v1.set(v2);
+
+    assert(v1 == 7);
+    assert(v2 == 7);
+    assert(v3 == 5);
+
+    v4.get_mut() = 11;
+    assert(v4.get() == 11);
+
+    {
+        const auto r1 = v1.ref();
+        assert(*r1 == 7);
+    }
+
+    {
+        auto r1 = v1.ref_mut();
+        assert(*r1 == 7);
+        *r1 = 13;
+    }
+
+    assert(v1 == 13);
+
+    Val<std::vector<int>> vec{ std::vector{
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6,
+        5,
+        3,
+        5,
+    } };
+
+    {
+        const auto s1 = vec.slice();
+        assert(s1.len() == 11);
+        assert(*s1[8] == 5);
+
+        assert(*vec[4] == 5);
+
+        const auto s2 = vec[4, 8];
+        assert(s2.len() == 4);
+        assert(*s2[2] == 2);
+    }
+
+    {
+        const auto s = vec.slice_mut();
+        assert(s.len() == 11);
+        s[8] = 8;
+    }
+
+    assert(*vec[8] == 8);
+
+    {
+        auto r = vec.index_mut(4);
+        *r = 4;
+    }
+
+    assert(*vec[4] == 4);
+
+    {
+        const auto s = vec.slice_mut(4, 8);
+        assert(s.len() == 4);
+        s[2] = 5;
+    }
+
+    assert(*vec[6] == 5);
+}
+
+static void test_no_panic() {
+    test_full_val();
 }
 
 } // namespace bor
