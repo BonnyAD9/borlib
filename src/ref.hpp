@@ -26,6 +26,7 @@ template<typename T> class Ref {
     friend RefMut<T>;
     friend Slice<T>;
     friend Val<T>;
+    template<typename> friend class Ref;
 
     const T *_r{ nullptr };
 #if BOR_CHECK
@@ -189,7 +190,9 @@ public:
             !_r, loc.inc(), "Cannot index uninitialized reference as slice."
         );
         auto len = OwnedSlice<T>().len(*_r);
-        panic_if(idx >= len, "Index out of range {}/{}", idx, len);
+        detail::panic_if(
+            idx >= len, loc.inc(), "Index out of range {}/{}", idx, len
+        );
         _cnts->add_ref();
 #endif
         return { OwnedSlice<T>().data(*_r) + idx BOR(, _cnts) };

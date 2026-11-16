@@ -1,5 +1,6 @@
 #include <cassert>
 #include <exception>
+#include <format>
 #include <iostream>
 #include <print>
 #include <vector>
@@ -11,6 +12,7 @@ namespace bor {
 
 static void start();
 static void tryout();
+static void test_panic();
 static void test_no_panic();
 
 } // namespace bor
@@ -38,6 +40,13 @@ namespace bor {
 static void start() {
     tryout();
 }
+
+static void tryout() {
+    test_no_panic();
+    test_panic();
+}
+
+// The following tests verify that the code panics where it is expected.
 
 static void test_dangling() {
     Ref<int> ref;
@@ -145,6 +154,9 @@ static void test_slice_mut() {
 }
 
 static void test_panic() {
+    // Only the first test is always tested, because the code panics and other
+    // tests won't run.
+
     test_slice_mut();
     test_slice();
     test_dangling();
@@ -155,10 +167,9 @@ static void test_panic() {
     test_multi_borrow();
 }
 
-static void tryout() {
-    test_no_panic();
-    test_panic();
-}
+// The goal of the following tests is to make sure that all template code is
+// forced to generate to verify that it compiles, and to test the basic
+// functionality where valid use cases don't panic.
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
 static void test_full_val() {
@@ -250,10 +261,50 @@ static void test_full_val() {
     }
 
     assert(*vec[6] == 5);
+    assert(std::format("{}", v1) == "13");
+}
+
+static void test_full_ref() {
+    {
+        const Ref<int> r;
+    }
+
+    Val<int> val = 5;
+    Ref<int> r1 = &val;
+    Ref<int> r2{ r1 };
+
+    assert(*r1 == 5);
+    assert(*r2 == 5);
+
+    r1 = r2;
+    r2 = std::move(r1);
+
+    assert(*r2 == 5);
+    assert(r2.get() == 5);
+    assert(r2.operator->() == &r2.get());
+
+    Val<std::vector<int>> vec{ std::vector{
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6,
+        5,
+        3,
+        5,
+    } };
+    const auto vr = vec.ref();
+
+    assert(*vr[5] == 9);
+    assert(std::format("{}", r2) == "5");
 }
 
 static void test_no_panic() {
     test_full_val();
+    test_full_ref();
 }
 
 } // namespace bor
