@@ -18,7 +18,7 @@ template<typename T> class SliceMut;
 ///
 /// This reference checks that noone else can access the referenced value.
 template<typename T> class RefMut {
-    friend SliceMut<T>;
+    template<typename> friend class SliceMut;
 
     T *_r{ nullptr };
 #if BOR_CHECK

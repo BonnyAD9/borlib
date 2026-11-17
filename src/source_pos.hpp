@@ -61,7 +61,7 @@ class SourcePos {
         return std::get<Pos>(_pos);
     }
 
-    SourcePos(std::size_t depth) : _pos(depth) { }
+    explicit SourcePos(std::size_t depth) : _pos(depth) { }
 # else  // BOR_STACKTRACE == 1
     std::source_location _pos;
 # endif // BOR_STACKTRACE == 1
@@ -80,12 +80,12 @@ public:
     /// Get the source location of the caller.
     ///
     /// This will save the callers stack trace depth to be retrieved later.
-    static SourcePos caller() { return 2; }
+    static SourcePos caller() { return SourcePos(2); }
 
     /// Get the source location of the caller and call inc.
     ///
     /// This will save the callers stack trace depth to be retrieved later.
-    static SourcePos caller2() { return 3; }
+    static SourcePos caller2() { return SourcePos(3); }
 
     /// Increase the depth on the stack. This is necesary to call when passing
     /// the SourcePos deeper to function so that the source location is

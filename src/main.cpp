@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "ref.hpp"
+#include "slice_mut.hpp"
 #include "val.hpp"
 
 namespace bor {
@@ -470,11 +471,174 @@ static void test_full_slice() {
     assert(*s2[1] == 2);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+static void test_full_slice_mut() {
+    {
+        const SliceMut<int> s;
+        assert(!s);
+    }
+
+    Val<std::vector<int>> vec{ std::vector{
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6,
+        5,
+        3,
+        5,
+    } };
+
+    {
+        SliceMut<int> s1{ vec.ref_mut() };
+
+        assert(s1.len() == 11);
+        assert(s1[0] == 3);
+
+        s1[0] = 2;
+        SliceMut<int> s2{ std::move(s1) };
+
+        // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+        assert(!s1);
+        assert(s2[1] == 1);
+
+        s2[1] = 3;
+        s1 = std::move(s2);
+
+        // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+        assert(!s2);
+        assert(s1[2] == 4);
+
+        s1[2] = 5;
+
+        const auto s = s1.as_span();
+
+        assert(s.size() == 11);
+        assert(s[3] == 1);
+
+        s[3] = 7;
+
+        auto r = std::move(s1)[4];
+
+        // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+        assert(!s1);
+        assert(*r == 5);
+
+        *r = 11;
+    }
+
+    assert(*vec[0] == 2);
+    assert(*vec[1] == 3);
+    assert(*vec[2] == 5);
+    assert(*vec[3] == 7);
+    assert(*vec[4] == 11);
+
+    {
+        auto s1 = vec.slice_mut();
+        auto s2 = std::move(s1)[4, 10];
+
+        // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+        assert(!s1);
+        assert(s2.len() == 6);
+        assert(s2[1] == 9);
+
+        s2[1] = 13;
+
+        const auto slic = s2.into_slice();
+
+        assert(slic.len() == 6);
+        assert(*slic[2] == 2);
+    }
+
+    assert(*vec[5] == 13);
+
+    {
+        auto s = vec.slice_mut();
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        auto res = s.borrow<int>(7, [](auto r) { return *r; });
+
+        assert(res == 6);
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        res = s.borrow<int>([](auto bs) { return *bs[8]; });
+
+        assert(res == 5);
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        res = s.borrow<int>(8, 11, [](auto bs) {
+            assert(bs.len() == 3);
+            return *bs[1];
+        });
+
+        assert(res == 3);
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        s.borrow(10, [](auto r) { assert(*r == 5); });
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        s.borrow([](auto bs) { assert(*bs[0] == 2); });
+
+        // NOLINTNEXTLINE(performance-unnecessary-value-param)
+        s.borrow(1, 7, [](auto bs) { assert(*bs[0] == 3); });
+
+        res = s.borrow_mut<int>(2, [](auto bs) {
+            const auto res = *bs * 2;
+            *bs = 17;
+            return res;
+        });
+
+        assert(res == 10);
+
+        res = s.borrow_mut<int>([](auto bs) {
+            const auto res = bs[3] * 2;
+            bs[3] = 19;
+            return res;
+        });
+
+        assert(res == 14);
+
+        res = s.borrow_mut<int>(2, 9, [](auto bs) {
+            const auto res = bs[2] * 2;
+            bs[2] = 23;
+            return res;
+        });
+
+        assert(res == 22);
+
+        s.borrow_mut(5, [](auto r) { *r = 29; });
+
+        assert(s[5] == 29);
+
+        s.borrow_mut([](auto r) { r[6] = 31; });
+
+        assert(s[6] == 31);
+
+        s.borrow_mut(7, 8, [](auto r) {
+            assert(r.len() == 1);
+            r[0] = 37;
+        });
+
+        assert(s[7] == 37);
+    }
+
+    assert(*vec[2] == 17);
+    assert(*vec[3] == 19);
+    assert(*vec[4] == 23);
+    assert(*vec[5] == 29);
+    assert(*vec[6] == 31);
+    assert(*vec[7] == 37);
+}
+
 static void test_no_panic() {
     test_full_val();
     test_full_ref();
     test_full_ref_mut();
     test_full_slice();
+    test_full_slice_mut();
 }
 
 } // namespace bor

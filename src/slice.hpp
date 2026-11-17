@@ -12,7 +12,11 @@
 
 namespace bor {
 
+template<typename T> class SliceMut;
+
 template<typename T> class Slice {
+    template<typename> friend class SliceMut;
+
     const T *_r{ nullptr };
     std::size_t _len{ 0 };
 
@@ -64,7 +68,7 @@ public:
             end
         );
         detail::panic_if(
-            end >= len, loc.inc(), "Index out of bounds {}/{}.", end, len
+            end > len, loc.inc(), "Index out of bounds {}/{}.", end, len
         );
         _cnts->create_ref(loc.inc());
 #endif
@@ -203,7 +207,7 @@ public:
 #if BOR_CHECK
         detail::panic_if(!_r, loc.inc(), "Cannot access uninitialized slice.");
 #endif
-        return { _r, _len };
+        return std::span(_r, _len);
     }
 
     /// Index into the slice.
@@ -241,7 +245,7 @@ public:
             start > end, loc.inc(), "Range start is larger than end."
         );
         detail::panic_if(
-            end >= _len,
+            end > _len,
             loc.inc(),
             "Slice out of bounds access {}/{}.",
             end,

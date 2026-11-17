@@ -17,6 +17,7 @@ namespace bor {
 template<typename T> class RefMut;
 template<typename T> class Slice;
 template<typename T> class Val;
+template<typename T> class SliceMut;
 
 /// Safe reference.
 ///
@@ -27,6 +28,7 @@ template<typename T> class Ref {
     template<typename> friend class Slice;
     friend Val<T>;
     template<typename> friend class Ref;
+    template<typename> friend class SliceMut;
 
     const T *_r{ nullptr };
 #if BOR_CHECK

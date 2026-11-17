@@ -65,7 +65,7 @@ public:
             end
         );
         detail::panic_if(
-            end >= len, loc.inc(), "Index out of bounds {}/{}", end, len
+            end > len, loc.inc(), "Index out of bounds {}/{}", end, len
         );
         _cnts->create_ref_mut(loc.inc());
 #endif
@@ -180,7 +180,7 @@ public:
             _borrowed, loc.inc(), "Cannot access borrowed mutable slice."
         );
 #endif
-        return { _r, _len };
+        return std::span(_r, _len);
     }
 
     /// Convert this slice to a reference to object at the given index.
@@ -189,7 +189,7 @@ public:
     /// of bounds.
     RefMut<T> operator[](std::size_t idx BOR(
         , detail::SourcePos loc = detail::SourcePos::current()
-    )) const && noexcept {
+    )) && noexcept {
 #if BOR_CHECK
         panic_if(!_r, loc.inc(), "Cannot access uninitialized mutable slice.");
         panic_if(
@@ -239,7 +239,7 @@ public:
         std::size_t start,
         std::size_t end
             BOR(, detail::SourcePos loc = detail::SourcePos::current())
-    ) const && noexcept {
+    ) && noexcept {
 #if BOR_CHECK
         panic_if(
             !_r, loc.inc(), "Cannot subslice uninitialized mutable reference."
@@ -249,7 +249,7 @@ public:
         );
         panic_if(end < start, loc.inc(), "Invalid range ({}..{})", start, end);
         panic_if(
-            end >= _len,
+            end > _len,
             loc.inc(),
             "Invalid index out of bounds {}/{}.",
             end,
@@ -278,7 +278,7 @@ public:
 #endif
         auto r = _r;
         _r = nullptr;
-        return { r BOR(, _cnts) };
+        return { r, _len BOR(, _cnts) };
     }
 
     /// Convert the mutable slice into immutable slice.
@@ -294,9 +294,8 @@ public:
     /// of range or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow(
-        F f,
-        std::size_t idx
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t idx,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(
             std::is_invocable_r_v<R, F, Ref<T>> &&
@@ -373,10 +372,9 @@ public:
     /// invalid or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow(
-        F f,
         std::size_t start,
-        std::size_t end
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t end,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(
             std::is_invocable_r_v<R, F, Slice<T>> &&
@@ -398,7 +396,7 @@ public:
             end
         );
         detail::panic_if(
-            end >= _len,
+            end > _len,
             loc.inc(),
             "Mutable slice index out of range {}/{}.",
             end,
@@ -426,9 +424,8 @@ public:
     /// of range or if the borrowed value escapes the closure.
     template<typename F>
     void borrow(
-        F f,
-        std::size_t idx
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t idx,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(std::is_invocable_v<F, Ref<T>>)
     {
@@ -499,12 +496,11 @@ public:
     /// invalid or if the borrowed value escapes the closure.
     template<typename F>
     void borrow(
-        F f,
         std::size_t start,
-        std::size_t end
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t end,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
-        requires(std::is_invocable_r_v<F, Slice<T>>)
+        requires(std::is_invocable_v<F, Slice<T>>)
     {
 #if BOR_CHECK
         detail::panic_if(
@@ -521,7 +517,7 @@ public:
             end
         );
         detail::panic_if(
-            end >= _len,
+            end > _len,
             loc.inc(),
             "Mutable slice index out of range {}/{}.",
             end,
@@ -548,9 +544,8 @@ public:
     /// of range or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow_mut(
-        F f,
-        std::size_t idx
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t idx,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(
             std::is_invocable_r_v<R, F, RefMut<T>> &&
@@ -629,10 +624,9 @@ public:
     /// invalid or if the borrowed value escapes the closure.
     template<typename R, typename F>
     R borrow_mut(
-        F f,
         std::size_t start,
-        std::size_t end
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t end,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(
             std::is_invocable_r_v<R, F, SliceMut<T>> &&
@@ -654,7 +648,7 @@ public:
             end
         );
         detail::panic_if(
-            end >= _len,
+            end > _len,
             loc.inc(),
             "Mutable slice index out of range {}/{}.",
             end,
@@ -682,9 +676,8 @@ public:
     /// of range or if the borrowed value escapes the closure.
     template<typename F>
     void borrow_mut(
-        F f,
-        std::size_t idx
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t idx,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
         requires(std::is_invocable_v<F, RefMut<T>>)
     {
@@ -755,12 +748,11 @@ public:
     /// invalid or if the borrowed value escapes the closure.
     template<typename F>
     void borrow_mut(
-        F f,
         std::size_t start,
-        std::size_t end
-            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+        std::size_t end,
+        F f BOR(, detail::SourcePos loc = detail::SourcePos::current())
     )
-        requires(std::is_invocable_r_v<F, SliceMut<T>>)
+        requires(std::is_invocable_v<F, SliceMut<T>>)
     {
 #if BOR_CHECK
         detail::panic_if(
@@ -777,7 +769,7 @@ public:
             end
         );
         detail::panic_if(
-            end >= _len,
+            end > _len,
             loc.inc(),
             "Mutable slice index out of range {}/{}.",
             end,
