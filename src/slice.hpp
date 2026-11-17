@@ -94,8 +94,8 @@ public:
     Slice(
         Ref<S> &&ref BOR(, detail::SourcePos loc = detail::SourcePos::caller())
     ) noexcept :
-        _r(OwnedSlice<S>(ref.get(BOR(loc.inc()))).data()),
-        _len(OwnedSlice<S>(ref.get(BOR(loc.inc()))).len()) BOR(
+        _r(OwnedSlice<S>().data(ref.get(BOR(loc.inc())))),
+        _len(OwnedSlice<S>().len(ref.get(BOR(loc.inc())))) BOR(
             , _cnts(ref._cnts)
         ) {
 #if BOR_CHECK
@@ -164,6 +164,7 @@ public:
         _r = other._r;
         _len = other._len;
         _cnts = other._cnts;
+        _cnts->add_ref();
         return *this;
     }
 #else

@@ -43,7 +43,10 @@ static void start() {
 
 static void tryout() {
     test_no_panic();
-    test_panic();
+    // NOLINTNEXTLINE(readability-simplify-boolean-expr)
+    if (false) {
+        test_panic();
+    }
 }
 
 // The following tests verify that the code panics where it is expected.
@@ -407,10 +410,71 @@ static void test_full_ref_mut() {
     assert(val == 23);
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+static void test_full_slice() {
+    {
+        const Slice<int> s;
+        assert(!s);
+    }
+
+    Val<std::vector<int>> vec{ std::vector{
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6,
+        5,
+        3,
+        5,
+    } };
+
+    auto r = vec.ref();
+    Slice<int> s1{ r };
+    Slice<int> s2{ std::move(r) };
+    const Slice<int> s3{ std::move(s1) };
+    const Slice<int> s4{ s2 };
+
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    assert(!s1);
+    assert(s2);
+    assert(s3);
+    assert(s4);
+    assert(*s2[0] == 3);
+    assert(*s3[1] == 1);
+    assert(*s4[2] == 4);
+
+    s1 = std::move(s2);
+
+    assert(s1);
+    // NOLINTNEXTLINE(bugprone-use-after-move,clang-analyzer-cplusplus.Move)
+    assert(!s2);
+    assert(*s1[3] == 1);
+
+    s2 = s3;
+
+    assert(s2);
+    assert(s3);
+    assert(*s2[4] == 5);
+    assert(s1.len() == 11);
+
+    const auto span = s1.as_span();
+
+    assert(span.size() == 11);
+    assert(span[5] == 9);
+
+    s2 = s1[5, 9];
+
+    assert(*s2[1] == 2);
+}
+
 static void test_no_panic() {
     test_full_val();
     test_full_ref();
     test_full_ref_mut();
+    test_full_slice();
 }
 
 } // namespace bor

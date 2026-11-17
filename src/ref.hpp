@@ -24,7 +24,7 @@ template<typename T> class Val;
 /// referenced value while the reference exists.
 template<typename T> class Ref {
     friend RefMut<T>;
-    friend Slice<T>;
+    template<typename> friend class Slice;
     friend Val<T>;
     template<typename> friend class Ref;
 
