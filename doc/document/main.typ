@@ -29,7 +29,7 @@
 
 = Introduction
 
-= Rust borrowing rules
+= Rust borrowing rules <rs-bor>
 
 There are several rules concerning ownership and references in the Rust
 programming language. All of them are described in #cite(<therust>) either
@@ -158,5 +158,27 @@ being worked on and with time the complier is capable of rejecting more and
 more of unsound code that would previously be accepted.
 
 = Implementation in C++
+
+
+As discussed in #ref(<rs-bor>), prooving that a program adheres to the
+borrwing rules implies that certain kinds of undefined behaviour cannot happen.
+The rust compiler tries to verify that the rules are fulfilled ad compile time.
+Something like that wouldn't be achievable in C++ without modifying the
+compiler but C++ provides enough features to implement data types that will
+check the borrowing rules at runtime. This project presents header only C++
+library called _borlib_ that implements smart pointers which check the
+borrowing rules at runtime.
+
+The main implemented types are:
+- `Val<T>`: wrapper for owned value of type `T`.
+- `Ref<T>`: smart pointer wrapping immutable pointer to value of type `T` owned
+  by `Val<T>`.
+- `RefMut<T>`: smart pointer wrapping mutable pointer to value of type `T`
+  owned by `Val<T>`.
+- `Slice<T>`: smart pointer wrapping immutable continuous memory region with
+  elements of type `T` owned by `Val<S>` where `S` is some kind of container
+  for that memory region (e.g. `std::vector` or `std::array`).
+- `SliceMut<T>`: smart pointer wrapping mutable continuous memory region with
+  elements of type `T` owned by `Val<S>` simmilarily to `Slice<T>`.
 
 = Showcase
