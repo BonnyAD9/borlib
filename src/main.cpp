@@ -384,6 +384,7 @@ static void test_full_ref_mut() {
 
         // NOLINTNEXTLINE(performance-unnecessary-value-param)
         auto res = r.borrow<int>([](auto br) {
+            // NOLINTNEXTLINE(performance-unnecessary-copy-initialization)
             const Ref<int> br2 = br;
             return *br * 2;
         });

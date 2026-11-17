@@ -107,15 +107,17 @@ public:
 #endif
     }
 
-#if BOR_CHECK
     /// Move constructor for slice.
     ///
     /// Panics if the slice is uninitialized.
     Slice(
-        Slice<T> &&other, detail::SourcePos loc = detail::SourcePos::current()
+        Slice<T> &&other
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept :
-        _r(other._r), _len(other._len), _cnts(other._cnts) {
+        _r(other._r), _len(other._len) BOR(, _cnts(other._cnts)) {
+#if BOR_CHECK
         detail::panic_if(!_r, loc.inc(), "Cannot copy uninitialized slice.");
+#endif
         other._r = nullptr;
     }
 
@@ -123,18 +125,21 @@ public:
     ///
     /// Panics if the slice is uninitialized.
     Slice(
-        const Slice<T> &other,
-        detail::SourcePos loc = detail::SourcePos::current()
+        const Slice<T> &other
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
     ) noexcept :
-        _r(other._r), _len(other._len), _cnts(other._cnts) {
+        _r(other._r), _len(other._len) BOR(, _cnts(other._cnts)) {
+#if BOR_CHECK
         detail::panic_if(!_r, loc.inc(), "Cannot move uninitialized slice.");
         _cnts->add_ref();
+#endif
     }
 
     /// Move assignment operator for slice.
     ///
     /// Panics if the slice is uninitialized.
     Slice<T> &operator=(Slice<T> &&other) noexcept {
+#if BOR_CHECK
         detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
@@ -143,9 +148,10 @@ public:
         if (_r) {
             _cnts->remove_ref();
         }
+        _cnts = other._cnts;
+#endif
         _r = other._r;
         _len = other._len;
-        _cnts = other._cnts;
         other._r = nullptr;
         return *this;
     }
@@ -154,29 +160,27 @@ public:
     ///
     /// Panics if the slice is uninitialized.
     Slice<T> &operator=(const Slice<T> &other) noexcept {
+#if BOR_CHECK
         detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot copy uninitialized slice."
         );
+#endif
         if (this == &other) {
             return *this;
         }
+#if BOR_CHECK
         if (_r) {
             _cnts->remove_ref();
         }
-        _r = other._r;
-        _len = other._len;
         _cnts = other._cnts;
         _cnts->add_ref();
+#endif
+        _r = other._r;
+        _len = other._len;
         return *this;
     }
-#else
-    Slice(Slice<T> &&) = default;
-    Slice(const Slice<T> &) = default;
-    Slice &operator=(Slice<T> &&) = default;
-    Slice &operator=(const Slice<T> &) = default;
-#endif // BOR_CHECK
 
     /// Check whether the slice is initialized.
     [[nodiscard]]

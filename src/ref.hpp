@@ -78,30 +78,35 @@ public:
 #endif
     }
 
-#if BOR_CHECK
     /// Move constructor of reference. The other reference will be made
     /// uninitialized.
     ///
     /// Panics if the other reference is uninitialized.
-    Ref(Ref<T> &&other,
-        detail::SourcePos loc = detail::SourcePos::current()) noexcept :
-        _r(other._r), _cnts(other._cnts) {
+    Ref(Ref<T> &&other BOR(
+        , detail::SourcePos loc = detail::SourcePos::current()
+    )) noexcept :
+        _r(other._r) BOR(, _cnts(other._cnts)) {
+#if BOR_CHECK
         detail::panic_if(
             !_r, loc.inc(), "Cannot move uninitialized reference."
         );
+#endif
         other._r = nullptr;
     }
 
     /// Copy constructor of reference.
     ///
     /// Panics if the other reference is uninitialized.
-    Ref(const Ref<T> &other,
-        detail::SourcePos loc = detail::SourcePos::current()) noexcept :
-        _r(other._r), _cnts(other._cnts) {
+    Ref(const Ref<T> &other BOR(
+        , detail::SourcePos loc = detail::SourcePos::current()
+    )) noexcept :
+        _r(other._r) BOR(, _cnts(other._cnts)) {
+#if BOR_CHECK
         detail::panic_if(
             !_r, loc.inc(), "Cannot copy uninitialized reference."
         );
         _cnts->add_ref();
+#endif
     }
 
     /// Move assignment operator of reference. The other reference will be made
@@ -109,6 +114,7 @@ public:
     ///
     /// Panics if the other reference is uninitialized.
     Ref<T> &operator=(Ref<T> &&other) noexcept {
+#if BOR_CHECK
         detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
@@ -117,8 +123,9 @@ public:
         if (_r) {
             _cnts->remove_ref();
         }
-        _r = other._r;
         _cnts = other._cnts;
+#endif
+        _r = other._r;
         other._r = nullptr;
         return *this;
     }
@@ -127,28 +134,26 @@ public:
     ///
     /// Panics if the other reference is uninitialized.
     Ref<T> &operator=(const Ref<T> &other) noexcept {
+#if BOR_CHECK
         detail::panic_if(
             !other._r,
             detail::SourcePos::caller2(),
             "Cannot copy uninitialized reference."
         );
+#endif
         if (this == &other) {
             return *this;
         }
+#if BOR_CHECK
         if (_r) {
             _cnts->remove_ref();
         }
-        _r = other._r;
         _cnts = other._cnts;
         _cnts->add_ref();
+#endif
+        _r = other._r;
         return *this;
     }
-#else
-    Ref(Ref<T> &&) = default;
-    Ref(const Ref<T> &) = default;
-    Ref<T> &operator=(Ref<T> &&) = default;
-    Ref<T> &operator=(const Ref<T> &) = default;
-#endif // BOR_CHECK
 
     /// Check whether the reference is initialized.
     [[nodiscard]]
