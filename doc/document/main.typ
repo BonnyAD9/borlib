@@ -159,26 +159,66 @@ more of unsound code that would previously be accepted.
 
 = Implementation in C++
 
-
-As discussed in #ref(<rs-bor>), prooving that a program adheres to the
-borrwing rules implies that certain kinds of undefined behaviour cannot happen.
-The rust compiler tries to verify that the rules are fulfilled ad compile time.
-Something like that wouldn't be achievable in C++ without modifying the
-compiler but C++ provides enough features to implement data types that will
-check the borrowing rules at runtime. This project presents header only C++
-library called _borlib_ that implements smart pointers which check the
+Everything in this project uses C++ 23, the currently latest approved C++
+standard. As discussed in #ref(<rs-bor>), prooving that a program adheres to
+the borrwing rules implies that certain kinds of undefined behaviour cannot
+happen. The rust compiler tries to verify that the rules are fulfilled at
+compile time. Something like that wouldn't be achievable in C++ without
+modifying the compiler but C++ provides enough features to implement data types
+that will check the borrowing rules at runtime. This project presents header
+only C++ library called _borlib_ that implements smart pointers which check the
 borrowing rules at runtime.
 
 The main implemented types are:
 - `Val<T>`: wrapper for owned value of type `T`.
-- `Ref<T>`: smart pointer wrapping immutable pointer to value of type `T` owned
+- `Ref<T>`: smart pointer wrapping pointer to immutable value of type `T` owned
   by `Val<T>`.
-- `RefMut<T>`: smart pointer wrapping mutable pointer to value of type `T`
+- `RefMut<T>`: smart pointer wrapping pointer to mutable value of type `T`
   owned by `Val<T>`.
 - `Slice<T>`: smart pointer wrapping immutable continuous memory region with
   elements of type `T` owned by `Val<S>` where `S` is some kind of container
   for that memory region (e.g. `std::vector` or `std::array`).
 - `SliceMut<T>`: smart pointer wrapping mutable continuous memory region with
   elements of type `T` owned by `Val<S>` simmilarily to `Slice<T>`.
+
+All operations on the implemented types verify that the operation doesn't
+violate any of the borrowing rules and if the operation would violate any of
+the rules the function `panic` is called which will print error message the
+source location where the operation was invoked and terminate the proccess.
+
+#todo[why is this advantage when the checks are at runtime]
+
+== Ownership rules
+
+C++ already provides tools to partially follow the ownership rules. With the
+help of destructors, one can write any code that will run when a type goes out
+of scope simillarily to the `Drop` trait in Rust. But C++ in no way enforces
+that each value has exactly one owner. The main problem is with pointers.
+Pointers can refer to eather an owned value on stack (e.g. pointer in the
+`std::vector` implementation) or to a borrowed value (e.g. when they are used
+as iterators) and sometimes it is not clear which part of the code should be
+responsible for freeing the pointer. This can lead to various issues such as
+use after free and double free. C++ provides references which are clearly not
+owning and they can be and are in many cases used instead of pointers. But in
+many cases, pointers still have to be used because references are immutable,
+once a reference is created the address that it stores cannot be changed.
+References also cannot refer to references; it is not possible to create
+reference to reference to a value (the syntax `T &&` in C++ doesn't declare
+double reference but an rvalue). Since C++ 11 the standard library contains
+smart pointers (e.g `std::unique_ptr`) which have clear ownership semantics and
+modern code should use them when possible. However, C++ doesn't enforce
+anything and it is possible to have an owning reference or multiple instances
+of `std::unique_ptr` with the same address (although the latter will lead to
+undefined behaviour).
+
+There is no need to reinvent the weel and so borlib doesn't provide any wrapper
+for an owning pointer, all the smart pointers in borlib (`Ref`, `RefMut`,
+`Slice` and `SliceMut`) are not owning. Borlib can be used with the standard
+library so the owning pointer to data of type `T` can be achieved with
+`std::unique_ptr<Val<T>>`. It is already common practice in C++ to create types
+in a way that they follow the ownership rules, so borlib doesn't provide many
+additional advantages regarding the compliance with ownership rules.
+
+== Rules of references
 
 = Showcase
