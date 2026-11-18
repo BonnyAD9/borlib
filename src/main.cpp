@@ -632,6 +632,21 @@ static void test_full_slice_mut() {
     assert(*vec[5] == 29);
     assert(*vec[6] == 31);
     assert(*vec[7] == 37);
+
+    {
+        auto [s1, s2] = vec.slice_mut().split({ 2, 9 }, { 9, 11 });
+
+        assert(s1.len() == 7);
+        assert(s1[6] == 5);
+        assert(s2.len() == 2);
+        assert(s2[0] == 3);
+
+        s1[6] = 41;
+        s2[0] = 43;
+    }
+
+    assert(*vec[8] == 41);
+    assert(*vec[9] == 43);
 }
 
 static void test_no_panic() {

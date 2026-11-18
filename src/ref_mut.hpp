@@ -4,6 +4,7 @@
 
 #include "defines.hpp"
 #include "ref.hpp"
+#include "source_pos.hpp"
 #include "val_inner.hpp"
 
 #if BOR_CHECK
@@ -114,6 +115,11 @@ public:
             detail::SourcePos::caller2(),
             "Cannot move borroed mutable reference."
         );
+        detail::panic_if(
+            _borrowed,
+            detail::SourcePos::caller2(),
+            "Cannot overwrite borrowed reference."
+        );
         if (_r) {
             _cnts->remove_ref_mut();
         }
@@ -206,15 +212,14 @@ public:
         detail::panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        detail::Counters cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        R res = f(Ref(_r BOR(, _cnts)));
+        R res = f(Ref(_r BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed reference escaped its lifetime."
         );
@@ -239,15 +244,14 @@ public:
         panic_if(
             !_r, loc.inc(), "Cannot borrow uninitialized mutable reference."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        f(Ref(_r BOR(, _cnts)));
+        f(Ref(_r BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed reference escaped its lifetime."
         );
@@ -276,15 +280,14 @@ public:
         panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        R r = f(RefMut(_r BOR(, _cnts)));
+        R r = f(RefMut(_r BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed mutable reference escaped its lifetime."
         );
@@ -311,15 +314,14 @@ public:
         panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable reference."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        f(RefMut(_r BOR(, _cnts)));
+        f(RefMut(_r BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed mutable reference escaped its lifetime."
         );

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <utility>
 
 #include "counters.hpp"
 #include "err.hpp"
@@ -131,6 +132,11 @@ public:
             other._borrowed,
             detail::SourcePos::caller2(),
             "Cannot move borrowed mutable slice."
+        );
+        detail::panic_if(
+            _borrowed,
+            detail::SourcePos::caller2(),
+            "Cannot overwrite borrowed reference."
         );
         if (_r) {
             _cnts->remove_ref_mut();
@@ -288,6 +294,51 @@ public:
         return self.into_slice(BOR(detail::SourcePos::caller2()));
     }
 
+    /// Split the mutable slice into two disjunct mutable subslices.
+    ///
+    /// Panics if the ranges are invalid or if they overlap.
+    std::pair<SliceMut<T>, SliceMut<T>> split(
+        std::pair<std::size_t, std::size_t> a,
+        std::pair<std::size_t, std::size_t> b
+            BOR(, detail::SourcePos loc = detail::SourcePos::current())
+    ) && noexcept {
+#if BOR_CHECK
+        detail::panic_if(
+            a.first > a.second, loc.inc(), "First range is invalid."
+        );
+        detail::panic_if(
+            b.first > b.second, loc.inc(), "Second range is invalid."
+        );
+        detail::panic_if(
+            (a.first < b.first && a.second > b.first) ||
+                (b.first < a.first && b.second > a.first),
+            loc.inc(),
+            "The ranges overlap."
+        );
+        detail::panic_if(
+            a.second > _len,
+            loc.inc(),
+            "First range is out of bounds {}/{}",
+            a.second,
+            _len
+        );
+        detail::panic_if(
+            b.second > _len,
+            loc.inc(),
+            "Second range is out of bounds {}/{}",
+            b.second,
+            _len
+        );
+        _cnts->add_ref();
+#endif
+        auto r = _r;
+        _r = nullptr;
+        return {
+            { r + a.first, a.second - a.first BOR(, _cnts) },
+            { r + b.first, b.second - b.first BOR(, _cnts) },
+        };
+    }
+
     /// Immutably borrow value at the given index.
     ///
     /// Panics if the slice is uninitialized or borrowed or if the index is out
@@ -316,15 +367,14 @@ public:
             idx,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        R res = f(Ref(_r + idx BOR(, _cnts)));
+        R res = f(Ref(_r + idx BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -350,15 +400,14 @@ public:
         detail::panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable slice."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        R res = f(Slice(_r, _len BOR(, _cnts)));
+        R res = f(Slice(_r, _len BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -402,15 +451,14 @@ public:
             end,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        R res = f(Slice(_r + start, end - start BOR(, _cnts)));
+        R res = f(Slice(_r + start, end - start BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -443,15 +491,14 @@ public:
             idx,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        f(Ref(_r + idx BOR(, _cnts)));
+        f(Ref(_r + idx BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -475,15 +522,14 @@ public:
         detail::panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable slice."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        f(Slice(_r, _len BOR(, _cnts)));
+        f(Slice(_r, _len BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -523,15 +569,14 @@ public:
             end,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed();
         _borrowed = true;
 #endif
-        f(Slice(_r + start, end - start BOR(, _cnts)));
+        f(Slice(_r + start, end - start BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -566,15 +611,14 @@ public:
             idx,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        R res = f(RefMut(_r + idx BOR(, _cnts)));
+        R res = f(RefMut(_r + idx BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -602,15 +646,14 @@ public:
         detail::panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable slice."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        R res = f(SliceMut(_r, _len BOR(, _cnts)));
+        R res = f(SliceMut(_r, _len BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -654,15 +697,14 @@ public:
             end,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        R res = f(SliceMut(_r + start, end - start BOR(, _cnts)));
+        R res = f(SliceMut(_r + start, end - start BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -695,15 +737,14 @@ public:
             idx,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        f(RefMut(_r + idx BOR(, _cnts)));
+        f(RefMut(_r + idx BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -727,15 +768,14 @@ public:
         detail::panic_if(
             _borrowed, loc.inc(), "Cannot borrow borrowed mutable slice."
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        f(SliceMut(_r, _len BOR(, _cnts)));
+        f(SliceMut(_r, _len BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );
@@ -775,15 +815,14 @@ public:
             end,
             _len
         );
-        const auto cnt = _cnts->ref_cnt();
-        _cnts->add_ref();
+        auto cnts = detail::Counters::borrowed_mut();
         _borrowed = true;
 #endif
-        f(SliceMut(_r + start, end - start BOR(, _cnts)));
+        f(SliceMut(_r + start, end - start BOR(, &cnts)));
 #if BOR_CHECK
         _borrowed = false;
         detail::panic_if(
-            _cnts->ref_cnt() != cnt,
+            cnts.ref_cnt() != 0,
             loc.inc(),
             "Borrowed slice escaped its lifetime."
         );

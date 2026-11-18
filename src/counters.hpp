@@ -21,6 +21,8 @@ class Counters {
     /// True if any mutable reference exists.
     std::atomic_bool _mut;
 
+    constexpr Counters(std::size_t ref, bool mut) : _ref(ref), _mut(mut) { }
+
 public:
     /// Creates empty counters.
     constexpr Counters() = default;
@@ -56,6 +58,16 @@ public:
     static Counters copy_out(const Counters &of, SourcePos loc) noexcept {
         of.check_copy_out(loc.inc());
         return {};
+    }
+
+    [[nodiscard]]
+    static Counters borrowed() noexcept {
+        return { 1, false };
+    }
+
+    [[nodiscard]]
+    static Counters borrowed_mut() noexcept {
+        return { 1, true };
     }
 
     /// Checks if there is any reference.
