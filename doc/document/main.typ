@@ -186,7 +186,20 @@ violate any of the borrowing rules and if the operation would violate any of
 the rules the function `panic` is called which will print error message the
 source location where the operation was invoked and terminate the proccess.
 
-#todo[why is this advantage when the checks are at runtime]
+The advantage of doing the checks at runtime instead of not doing them is that
+they will catch the issue before it would cause undefined behaviour. There are
+already tools that can detect incorrect memory accesses (such as address
+sanitizers or valgrind) but they will catch the issue only if the memory access
+is truly invalid. If for example some memory gets freed, but there is still
+pointer pointing to that addres and some next allocation gets placed at the
+same address, access through the original pointer will not be regarded as
+invalid. But when checking the borrowing rules, the issue gets caught already
+when the memory is freed while there still exist pointer to that memory.
+Another problem is that the tools are unable to catch data races. When the
+borrowing rules are checked, data races cannot occur, because it is not
+possible to create mutable pointer to a memory while another part of code can
+access that memory, the issue will be caught not when the data race occurs, but
+already at the time where the possibility of data race is created.
 
 == Ownership rules
 
@@ -220,5 +233,148 @@ in a way that they follow the ownership rules, so borlib doesn't provide many
 additional advantages regarding the compliance with ownership rules.
 
 == Rules of references
+
+In this section the term _reference_ will refer to the smart pointers in
+borlib. Terms _mutable reference_ and _immutable reference_ will mean that the
+data that the reference points to is mutable or immutable data and not the
+pointer itself is mutable or immutable.
+
+The rules of references are verified through the class `Counters` which is
+created for each instance of `Val<T>`. The class contains two atomic variables:
+- `std::atomic_size_t _ref`: Reference counter that tracks the number of
+  references to the value.
+- `std::atomic_bool _mut`: Flag that indicates whether any of the references
+  have mutable access to the value.
+The class `Counters` allows modification of the variables and basic checks
+through api that names the semantic actions that can be done with the value or
+its references. Access to the value through `Val<T>` can be checked with the
+methods `check_move_out`, `check_copy_out`, `check_write`, `check_read` and
+`check_destroy`. These methods don't alter the atomic variables. Moving the
+value, writing to it or destroying it is valid only if there are no references.
+Copying or reading the value is allowed if there is no mutable reference.
+Operations on references which will actually modify the counters are achieved
+with the methods `create_ref`, `create_ref_mut`, `add_ref`, `remove_ref` and
+`transfer_mut_to_ref`. Creating immutable reference is valid only if there is
+no mutable reference and the operation will increment the field `_ref`.
+Creating mutable reference is valid only if there are no other references and
+the operation will also set the field `_mut` to `true` alongside with
+incrementing `_ref`. Operations `add_ref` and `remove_ref` only increase or
+decrease the reference counter. When removing the last reference, `_mut` is
+also set to `false`. The operation `transfer_mut_to_ref` is used when mutable
+reference is converted to immutable reference. It will set the variable `_mut`
+to `false` if this is the only reference.
+
+It may seem that `_ref` must always be `1` if `_mut` is `true`. This is not the
+case when splitting mutable slices which is more closely described in
+#ref(<slice-mut>).
+
+References to single value are represented with two classes `Ref<T>` and
+`RefMut<T>` to differentiate between mutable and immutable reference. They each
+contain pointer to the data of type `T` and pointer to the structure
+`Counters`. It might be tempting to store only one pointer to `Val<T>` since it
+contains both the data and counters, but that wouldn't allow representing
+situations where the reference refers only to portion of the data (e.g. single
+item from vector). `RefMut<T>` additionally contains a flag `_borrowed` that is
+used in reborrowing which will be discussed later. `Ref<T>` is described in
+#ref(<ref>) and `RefMut<T>` is described in #ref(<ref-mut>).
+
+References to multiple values stored continuously in memory are represented by
+classes `Slice<T>` and `SliceMut<T>`. They contain the same fields as `Ref<T>`
+and `RefMut<T>` respectiviely and additionaly have field storing the number of
+items inside the refered memory region. `Slice<T>` is described in
+#ref(<slice>) and `Slice<T>` is described  in #ref(<slice-mut>).
+
+== `Val<T>` <val>
+
+The class `Val<T>` has the following simplified structure:
+```cpp
+template<typename T> class Val {
+  Counters cnts;
+  T value;
+public:
+  Val(T);
+  const T &get();
+  T &get_mut();
+  Ref<T> ref();
+  RefMut<T> ref_mut();
+  Slice<T::Item> slice()
+    requires(IsOwnedSlice<T>);
+  SliceMut<T::Item> slice_mut()
+    requires(IsOwnedSlice<T>);
+}
+```
+
+It contains the counters and the value itself. It allows arbitrary access to
+the inner value, but it checks the borrowing rules on each access. It also
+allows getting mutable and immutable access to the value through references. If
+the value `T` is some type that owns multiple items in countinuous memory,
+`Val<T>` allows retrieving the continuous memory as `Slice` or `SliceMut`. All
+the methods check if the operation violates the borrowing rules.
+
+`Val<T>` can be copied or moved if the type `T` supports it. All these
+operations also check if it violates the borrwing rules.
+
+== `Ref<T>` <ref>
+
+The class `Ref<T>` has the following simplified structure:
+```cpp
+template<typename T> class Ref {
+  Counters *_cnts;
+  const T *_r;
+public:
+  Ref();
+  const T &get();
+};
+```
+
+`Ref<T>` represents an immutable reference to a value of type `T`. The
+reference allows immutable access to the value and cloning the reference
+itself. It is possible to create uninitialized reference (represented by
+`_r == nullptr`) and all operations on the reference check if the reference is
+valid.
+
+== `RefMut<T>` <ref-mut>
+
+The class `RefMut<T>` has the following simplified structure:
+```cpp
+template<typename T> class RefMut {
+  Counters *_cnts;
+  bool _borrowed;
+  const T *_r;
+public:
+  RefMut();
+  RefMut(const RefMut<T> &) = delete;
+  RefMut<T> &operator=(const RefMut<T> &)
+    = delete;
+  T &get();
+  Ref<T> into_ref();
+  template<typename F> void borrow(F f);
+  template<typename F>
+  void borrow_mut(F f);
+}
+```
+
+Mutable reference cannot be copied (this is why the copy constructor and
+operator is deleted), but it allows mutable access to the underlaying data. It
+can also be converted to an immutable reference. The methods `borrow` and
+`borrow_mut` are used for reborrowing. Reborrowing is when a mutable reference
+is borrowed to be used by someone else for some duration without loosing
+ownership of the original reference. For the duration of the borrowing, the
+original reference cannot be used. The flag is used to indicate that the
+reference is borrowed and cannot be used. This is necesary when calling
+function which takes the mutable reference as an argument.
+
+Some operations and checks are required both at the start of the reborrowing
+and at the end. This is why this operation is realized with the higher order
+methods `borrow` and `borrow_mut` where the type `F` represents a function
+which will take the reborrowed reference as an argument. Reborrowing is
+implemented by creating new instance of `Counters` which is asociated with the
+borrowed reference. After the method finishes, the number of references in the
+created counters must be 0. If not, the borrowed reference escaped its scope
+and this will lead to violation of the borrowing rules.
+
+== `Slice<T>` <slice>
+
+== `SliceMut<T>` <slice-mut>
 
 = Showcase

@@ -150,7 +150,9 @@ public:
 
     /// Decrease the reference counter.
     void remove_ref() noexcept {
-        _ref.fetch_sub(1, std::memory_order_release);
+        if (_ref.fetch_sub(1, std::memory_order_release) == 1) {
+            _mut.store(false, std::memory_order_release);
+        }
     }
 
     /// Checks if creating mutable reference is valid and updates the counters.
@@ -167,13 +169,6 @@ public:
             loc.inc(),
             "Cannot mutably borrow value that is already borrowed."
         );
-    }
-
-    /// Removes mutable reference.
-    void remove_ref_mut() noexcept {
-        if (_ref.fetch_sub(1, std::memory_order_release) == 1) {
-            _mut.store(false, std::memory_order_release);
-        }
     }
 
     /// Transforms mutable reference to an immutable reference.

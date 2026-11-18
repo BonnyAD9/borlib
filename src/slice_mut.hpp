@@ -139,7 +139,7 @@ public:
             "Cannot overwrite borrowed reference."
         );
         if (_r) {
-            _cnts->remove_ref_mut();
+            _cnts->remove_ref();
         }
         _borrowed = false;
         _cnts = other._cnts;
@@ -832,7 +832,7 @@ public:
 #if BOR_CHECK
     ~SliceMut() {
         if (_r) {
-            _cnts->remove_ref_mut();
+            _cnts->remove_ref();
             _r = nullptr;
         }
     }
