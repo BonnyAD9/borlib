@@ -7,7 +7,12 @@
 #show: ieee.with(
   title: [Smart references for checking Rust borrowing rules in C++],
   abstract: [
-    #todo[Abstract]
+    This paper describes project implementing _borlib_, a C++ header only
+    library implementing smart pointers that check ownership rules and rules of
+    references used in rust. Unlike Rust, the smart pointers perform the checks
+    at runtime. Violation of the rules will lead to proccess termination with
+    helpful error message and source location as is shown in examples at the
+    end.
   ],
   authors: (
     (
@@ -19,8 +24,8 @@
     ),
   ),
   index-terms: (
-    [#todo[Keywords]],
-    "Scientific writing", "Typesetting", "Document creation", "Syntax"
+    "Borlib", "Rust", "Ownership rules", "Rules of references",
+    "Borrowing rules", "C++", "Smart pointers"
   ),
   bibliography: bibliography("refs.yaml"),
   figure-supplement: [Figure],
@@ -51,6 +56,24 @@
 }
 
 = Introduction
+
+It is hard to write correct code, and some bugs in code may manifest in special
+situations that may occur sparsly. This is why it may be benefitial to restrict
+how code can be written to avoid patterns that may lead to undefined behaviour.
+One example of language that goes this route is Rust. Rust places restrictions
+on how the programmer can manage memory in the form of ownership rules and
+rules of references. If one can proove that program follows these rules, it is
+possible to proove that certain kinds of undefined behaviour cannot occur in
+the program. Rust tries to verify the rules at compile time. This project
+describes a C++ header only library that provides smart pointers that
+check these rules at runtime. Checking at runtime is still benefitial, because
+the problem is usually caught before it could manifest.
+
+#ref(<rs-bor>) describes ownership rules and rules of references as they are in
+Rust. #ref(<cpp-bor>) describes how it is possible to implement checking of the
+rules in C++ at runtime and describes _borlib_, a new header only library that
+implements checking of the rules in C++ at runtime. #ref(<show>) showcases some
+examples where violations of the borrowing rules are caught by borlib.
 
 = Rust borrowing rules <rs-bor>
 
@@ -180,7 +203,7 @@ would breaks the rules without the compiler noticing. It is also continually
 being worked on and with time the complier is capable of rejecting more and
 more of unsound code that would previously be accepted.
 
-= Implementation in C++
+= Implementation in C++ <cpp-bor>
 
 Everything in this project uses C++ 23, the currently latest approved C++
 standard. As discussed in #ref(<rs-bor>), prooving that a program adheres to
@@ -524,7 +547,7 @@ compile time with the macro `BOR_CHECK`. The idea is that code can be written
 with borlib, tested with enabled checks and if performance is critical, the
 checks can be disabled for release builds.
 
-= Showcase and examples
+= Showcase and examples <show>
 
 This chapter contains examples where borlib catches borrow violations. Each
 example contains code and the output. The examples are all run with checks
@@ -627,3 +650,26 @@ from two references at the same time which violates the borrowing rules.
 ```
 main.cpp:5:6: borrow violation: The ranges overlap.
 ```
+
+= Conclusion
+
+Borrowing rules are useful because they can prevent several kinds of bugs that
+often occur in programs; when they are followed each memory access is
+guaranteed to be valid and all memory can be freed without requiring the use
+of any garbage collector. In some cases, they can be also limitting but
+majority of the code will benefit with them.
+
+Properly checking the borrowing rules at compile time can be difficult and even
+rust is at this time not capable of fully checking the rules. It is impossible
+to bring the compile time borrow checker capabilities to C++ without modifying
+the compiler, but it is possible to create smart references that check the
+rules at runtime. Checking the rules at runtime is still benefitial, because
+they can catch the undefined behaviour much sooner and also catch undefined
+behaviour that could occur undeterministically (such as data races).
+
+Borlib implements smart references in C++ that check the borrowing rules at
+runtime with helpful information about where and why the code violates the
+borrowing rules. The checks add overhead to the code and so it is possible to
+disable them on compile time for example for release builds. Borlib is
+compatible with other C++ code and so it can be used only when it makes sense
+or only in code that hash high requirements for correctness.
