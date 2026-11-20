@@ -3,6 +3,7 @@
 #include <format>
 #include <iostream>
 #include <print>
+#include <thread>
 #include <vector>
 
 #include "ref.hpp"
@@ -45,7 +46,7 @@ static void start() {
 static void tryout() {
     test_no_panic();
     // NOLINTNEXTLINE(readability-simplify-boolean-expr)
-    if (false) {
+    if (true) {
         test_panic();
     }
 }
@@ -157,14 +158,29 @@ static void test_slice_mut() {
                                           // mutably.
 }
 
+static void test_race() {
+    Val<int> v = 5;
+    const auto foo = [](RefMut<int> mr) { *mr = 7; };
+    std::thread t{ foo, v.ref_mut() };
+    std::println("value: {}", v.get());
+    t.join();
+}
+
+static void test_split() {
+    Val<std::vector<int>> vec = std::vector{ 3, 1, 4 };
+    auto [s1, s2] = vec.slice_mut().split({ 0, 2 }, { 1, 3 });
+}
+
 static void test_panic() {
     // Only the first test is always tested, because the code panics and other
     // tests won't run.
 
+    test_split();
+    test_borrow_escape();
+    test_race();
+    test_dangling();
     test_slice_mut();
     test_slice();
-    test_dangling();
-    test_borrow_escape();
     test_multi_borrow2();
     test_borrow_infiltrate();
     test_read_mut();

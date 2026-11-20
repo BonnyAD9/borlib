@@ -27,6 +27,29 @@
   paper-size: "a4",
 )
 
+#let codeblock(body, caption: none, lineNum:false) = {
+  if lineNum {
+    show raw.where(block:true): it =>{
+      set par(justify: false)
+      block(fill: luma(240),inset: 0.3em,radius: 0.3em,
+        // grid size: N*2
+        grid(
+          columns: 2,
+          align: left+top,
+          column-gutter: 0.5em,
+          stroke: (x,y) => if x==0 {( right: (paint:gray, dash:"densely-dashed") )},
+          inset: 0.3em,
+          ..it.lines.map((line) => (str(line.number), line.body)).flatten()
+        )
+      )
+    }
+    figure(body, caption: caption, kind: "code", supplement: "Code")
+  }
+  else{
+    figure(body, caption: caption, kind: "code", supplement: "Code")
+  }
+}
+
 = Introduction
 
 = Rust borrowing rules <rs-bor>
@@ -201,7 +224,16 @@ possible to create mutable pointer to a memory while another part of code can
 access that memory, the issue will be caught not when the data race occurs, but
 already at the time where the possibility of data race is created.
 
-== Ownership rules
+This chapter contains details about the implementation. #ref(<cpp-own>) and
+#ref(<cpp-ref>) discus how checking of the borrowing rules and rules of
+references respectively can be achieved in C++. #ref(<val>), #ref(<ref>),
+#ref(<ref-mut>), #ref(<slice>) and #ref(<slice-mut>) describe the structure and
+api of the borlib types `Val<T>`, `Ref<T>`, `RefMut<T>`, `Slice<T>` and
+`SliceMut<T>` respectively. #ref(<err-rep>) describes how borlib retrieves
+location of violations of borrowing rules in source code. #ref(<overhead>)
+describes the overhead of borlib.
+
+== Ownership rules <cpp-own>
 
 C++ already provides tools to partially follow the ownership rules. With the
 help of destructors, one can write any code that will run when a type goes out
@@ -232,7 +264,7 @@ library so the owning pointer to data of type `T` can be achieved with
 in a way that they follow the ownership rules, so borlib doesn't provide many
 additional advantages regarding the compliance with ownership rules.
 
-== Rules of references
+== Rules of references <cpp-ref>
 
 In this section the term _reference_ will refer to the smart pointers in
 borlib. Terms _mutable reference_ and _immutable reference_ will mean that the
@@ -301,7 +333,7 @@ public:
     requires(IsOwnedSlice<T>);
   SliceMut<T::Item> slice_mut()
     requires(IsOwnedSlice<T>);
-}
+};
 ```
 
 It contains the counters and the value itself. It allows arbitrary access to
@@ -351,7 +383,7 @@ public:
   template<typename F> void borrow(F f);
   template<typename F>
   void borrow_mut(F f);
-}
+};
 ```
 
 Mutable reference cannot be copied (this is why the copy constructor and
@@ -375,6 +407,223 @@ and this will lead to violation of the borrowing rules.
 
 == `Slice<T>` <slice>
 
+The simplified structure of the class `Slice<T>` is the following:
+
+```cpp
+template<typename T> class Slice {
+  Counters *_cnts;
+  const T *_r;
+  std::size_t _len;
+public:
+  Slice();
+  std::size_t len();
+  std::span<const T> as_span();
+  Ref<T> operator[](std::size_t idx);
+  Slice<T> operator[](
+    std::size_t start, std::size_t end
+  );
+};
+```
+
+Slice is very simmilar to `Ref<T>`. The difference is that it immutably borrows
+continuous slice of memory instead of just one item. It provides information
+about the length of the slice with the method `len` and to its data through
+the method `as_span`. The indexing operators are used to get reference to
+portion of the slice. Either single item (with the first `operator[]`) or to
+subslice (with the second `operator[]`).
+
 == `SliceMut<T>` <slice-mut>
 
-= Showcase
+Structure of the class `SliceMut<T>` can be simplified as follows:
+
+```cpp
+template<typename T> class SliceMut {
+  Counters *_cnts;
+  bool _borrowed;
+  T *_r;
+  std::size_t _len;
+public:
+  SliceMut();
+  SliceMut(const SliceMut &) = delete;
+  SliceMut &operator=(const SliceMut &)
+    = delete;
+  std::size_t len();
+  std::span<T> as_span();
+  RefMut<T> operator[](std::size_t i) &&;
+  SliceMut<T> operator[](
+    std::size_t start, std::size_t end
+  ) &&;
+  Slice<T> into_slice();
+  std::pair<SliceMut<T>> split(
+    Range a, Range b
+  ) &&;
+  template<typename F>
+  void borrow(Index idx, F f);
+  template<typename F>
+  void borrow_mut(Index idx, F f);
+}
+```
+
+`SliceMut` is to `Slice` what `RefMut` is to `Ref`. It refers to mutable
+continuous slice of memory. Simillarily to `RefMut`, the copy constructor and
+operator is deleted. It provides information about its length with the method
+`len` and access to its contents with the method `as_span`. The borrowed range
+of data can be changed with the indexing operators (the `&&` at the end of the
+declaration requires that the method is called with rvalue, so the old slice
+will become invalid). It can also be changed to an immutable slice with the
+method `into_slice`. The reborrowing methods `borrow` and `borrow_mut` are
+simmilar to the reborowing methods in `RefMut`, but there are more overloads
+for the placeholder type `Index`. It can be either nothing so the whole slice
+is reborrowed, single `std::size_t` where only one item is reborrowed or two
+`std::size_t`s to reborrow only portion of the slice.
+
+Iteresting is the method `split`. The type signature has been simplified to
+avoid long types. The correct spelling of the return type is
+`std::pair<SliceMut<T>, SliceMut<T>>` and the type `Range` stands for
+`std::pair<std::size_t, std::size_t>`. The method splits the mutable slice into
+two disjunct mutable slices. This split is what will make the reference counter
+in the counters differ to 1 even when `_mut` is `true`.
+
+== Error reporting <err-rep>
+
+When the borrowing rules are violated, the program is terminated and prints the
+source code location where the violation occured. The helpful source location
+of the violation is always location of the caller of any of the methods in
+borlib. The simplest way of getting this informatoin is with the use of
+`std::source_location` which can get location of the caller at compile time.
+The issue is that this approach can be used only when using methods which don't
+have limit on the number of arguments because it makes use of default
+arguments. The limit is problem for overloaded operators which usually have
+fixed signature (e.g. `operator=`) or destructors. In this case the source
+location cannot be simply obtained at compile time and has to be obtained at
+runtime. This can be achieved with the standard C++ _stacktrace_ api. The
+problem is that stacktrace is not widely supported by implementations of
+standard library and so it would be best to make its use optional. To simplify
+this, borlib contains wrapper `SourcePos` which wraps both
+`std::source_location` and stacktrace. When using `SourcePos::current()`, it
+behaves exactly as `std::source_location`. When using `SourcePos::caller()` it
+will track the relative position of the callers stack frame so it can be later
+used to retrieve the proper source location. If stacktrace is disabled,
+`SourcePos::caller()` will fall back to using `std::source_location`.
+Whether stacktrace is enabled is controled at compile time with the macro
+`BOR_STACKTRACE`.
+
+== Overhead of checking borrowing rules <overhead>
+
+Checking of the borrowing rules can add significant overhead. `Val<T>` takes up
+more space than just `T`, the references `Ref<T>` and `RefMut<T>` take more
+space than just `T *` and slices take more space than just `std::span<T>`. The
+checks performed on each operation are also very expensive compared to the
+performed operation. This is why borlib adds the option to disable all of the
+checking to remove the overhead. When disabled, the size of the types is the
+same as their standard counterparts and all checks are disabled. The only
+overhead of the references and slices is that when they are moved or destroyed
+they will set the underlaying pointer to `nullptr` so that the beahaviour of
+the public api doesn't change. Whether the checks are enabled is controled at
+compile time with the macro `BOR_CHECK`. The idea is that code can be written
+with borlib, tested with enabled checks and if performance is critical, the
+checks can be disabled for release builds.
+
+= Showcase and examples
+
+This chapter contains examples where borlib catches borrow violations. Each
+example contains code and the output. The examples are all run with checks
+enabled and stacktrace enabled.
+
+== Examples
+
+The format of the error messages is: _file_`:`_line_`:`_column_`:`
+_error message_.
+
+=== Dangling pointer
+In this example a value is created in an inner scope and reference to it is
+assigned to variable that outlives that scope. This would result in a dangling
+pointer.
+#codeblock(lineNum: true)[
+  ```cpp
+  int main() {
+    Ref<int> ref;
+    {
+      Val<int> n = 5;
+      ref = &n;
+      std::println("pos1");
+    }
+    std::println("pos2");
+    std::println("pos3: {}", ref);
+  }
+  ```
+]
+*Output:*
+```
+pos1
+main.cpp:7:0: borrow violation: Cannot destroy value that is borrowed.
+```
+
+=== Race condition
+In this example a value is created and a mutable reference to it is passed to
+another thread which modifies it. The main thread tries to read the value while
+the other thread might modify the value. This could result in race condition,
+but borlib terminates the program with error before the value is read.
+#codeblock(lineNum: true)[
+  ```cpp
+  int main() {
+    Val<int> v = 5;
+    auto foo = [](RefMut<int> mr) {
+        *mr = 7;
+    };
+    std::thread t(foo, v.ref_mut());
+    std::println(
+      "value: {}", v.get()
+    );
+    t.join();
+  }
+  ```
+]
+*Output:*
+```
+main.cpp:8:20: borrow violation: Cannot read value that is mutably borrowed.
+```
+
+=== Escape of reborrowed reference
+In this example a mutable refernce is created and than reborrowed. The
+reborrowed reference is than assigned to a value that will outlive the
+scope of reborrowing. This would result in having both mutable and immutable
+reference to the same value which would violate the borrowing rules.
+#codeblock(lineNum: true)[
+  ```cpp
+  int main() {
+    Val<int> v = 5;
+    Ref<int> ref;
+    RefMut<int> mref = v.ref_mut();
+    mref.borrow([](Ref<int> r) {
+        ref = r;
+    });
+    std::println("mut: {}", mref);
+    std::println("ref: {}", ref);
+  }
+  ```
+]
+*Output:*
+```
+main.cpp:5:8: borrow violation: Borrowed reference escaped its lifetime.
+```
+
+=== Overlapping mutable slice split
+In this example a mutable slice is created and than it is split into two
+subslices which overlap. This would allow mutable access to the same memory
+from two references at the same time which violates the borrowing rules.
+#codeblock(lineNum: true)[
+  ```cpp
+  int main() {
+    Val<std::vector<int>> vec
+      = std::vector{ 3, 1, 4 };
+    auto [s1, s2] = vec.slice_mut()
+      .split({0, 2}, {1, 3});
+    assert(s1[1] == s2[0]);
+  }
+  ```
+]
+*Output:*
+```
+main.cpp:5:6: borrow violation: The ranges overlap.
+```
