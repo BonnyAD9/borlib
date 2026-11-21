@@ -62,16 +62,16 @@ situations that may occur sparsely. This is why it may be beneficial to
 restrict how code can be written to avoid patterns that may lead to undefined
 behaviour. One example of a language that takes this approach is Rust. Rust
 places restrictions on how the programmer can manage memory in the form of
-ownership rules and rules of references. If one can prove that program follows
-these rules, it is possible to prove that certain kinds of undefined behaviour
-cannot occur in the program. Rust tries to verify the rules at compile time.
-This project describes a C++ header-only library that provides smart pointers
-that check these rules at runtime. Checking at runtime is still beneficial,
-because the problem is usually caught before it could manifest.
+ownership rules and rules of references. If one can prove that a program
+follows these rules, it is possible to prove that certain kinds of undefined
+behaviour cannot occur in the program. Rust tries to verify the rules at
+compile time. This project describes a C++ header-only library that provides
+smart pointers that check these rules at runtime. Checking at runtime is still
+beneficial because the problem is usually caught before it could manifest.
 
 #ref(<rs-bor>) describes ownership rules and rules of references as they are in
 Rust. #ref(<cpp-bor>) describes how it is possible to implement checking of the
-rules in C++ at runtime and describes _borlib_, a new header only library that
+rules in C++ at runtime and describes _borlib_, a new header-only library that
 implements checking of the rules in C++ at runtime. #ref(<show>) showcases some
 examples where violations of the borrowing rules are caught by borlib.
 
@@ -103,17 +103,17 @@ programs can be very efficient. The problem is that people are prone to making
 errors and incorrect memory management can lead to vulnerabilities in the
 program. Examples include _use after free_ and _memory leaks_.
 
-Another approach is to automate the memory management with garbage collector
+Another approach is to automate the memory management with a garbage collector
 (e.g. in _C\#_). In most cases the programmer doesn't have to think about when
-is the correct time to free allocated resource. This in most cases avoids the
-related bugs such as memory leaks or use after free, but the resulting program
-is not as efficient because garbage collectors have to periodically check the
-memory used by the program and free any unreachable memory. There are many
-algorithms for garbage collecting but none of them can minimize processor time,
-paused time of the program and memory usage at the same time.
+is the correct time to free an allocated resource. This in most cases avoids
+the related bugs such as memory leaks or use after free, but the resulting
+program is not as efficient because garbage collectors have to periodically
+check the memory used by the program and free any unreachable memory. There are
+many algorithms for garbage collecting but none of them can minimize processor
+time, paused time of the program and memory usage at the same time.
 
 The ownership rules place restrictions on how memory is organized within the
-program so that it is possible to correctly determnie when the memory should be
+program so that it is possible to correctly determine when the memory should be
 freed at compile time without it being specified by the programmer. This has
 the advantage of not being required to manually specify when memory has to be
 freed and at the same time not paying the cost of having a garbage collector.
@@ -129,30 +129,30 @@ for the owned value. When owner is dropped, all of its owned values are also
 dropped. On the top level the owner is the program stack. It is not possible to
 create something as an owner cycle.
 
-At first it may seem that that restricting memory organization within the
-program may result in suboptimal programs because the optimal solution to the
-problem may not be representable within the restrictions. In reality the rules
-restrict the memory organization to organization that is actually commonly used
-when memory is managed manually. For cases where the rules are too restrictive,
-Rust has the option of writing code within `unsafe` blocks which allow breaking
-the rules within the scope of the `unsafe` block. This allows for
-implementing correct data types that internally don't align with the ownership
-rules. The types themselves don't require the usage of the `unsafe` block,
-because they are correct from the outside. It may seem that `unsafe` blocks
-break the safety guarantees but in most cases they are not required and when
-they are used it is clear which code should be analyzed more carefully. One
-example of type that circumvents the rules is `Arc` which allows shared
-ownership and is implemented with reference counting.
+At first it may seem that restricting memory organisation within the program
+may result in suboptimal programs because the optimal solution to the problem
+may not be representable within the restrictions. In reality the rules restrict
+the memory organisation to organisation that is actually commonly used when
+memory is managed manually. For cases where the rules are too restrictive, Rust
+has the option of writing code within `unsafe` blocks which allow breaking the
+rules within the scope of the `unsafe` block. This allows for implementing
+correct data types that internally don't align with the ownership rules. The
+types themselves don't require the usage of the `unsafe` block, because they
+are correct from the outside. It may seem that `unsafe` blocks break the safety
+guarantees but in most cases they are not required and when they are used it is
+clear which code should be analyzed more carefully. One example of type that
+circumvents the rules is `Arc` which allows shared ownership and is implemented
+with reference counting.
 
 Rust allows compliance with the ownership rules by providing the `Drop` trait
-which has similar job to destructors in other languages: it allows specifying
-code that should run when a value of given type is dropped. The rules are also
-enforced by allowing the allocation of unowned resources only in `unsafe`
-blocks. Even though Rust has the ownership rules, leaking a resource is not
-considered an undefined behaviour, so there it is possible to leak memory
-without the use of `unsafe` block. However, the API that allows this is always
-very explicit about this beahviour because most of the time the only purpose of
-such api is to leak the memory (e.g. the function `Box::leak`).
+which has a similar job to that of destructors in other languages: it allows
+specifying code that should run when a value of a given type is dropped. The
+rules are also enforced by allowing the allocation of unowned resources only in
+`unsafe` blocks. Even though Rust has the ownership rules, leaking a resource
+is not considered an undefined behaviour, so there it is possible to leak
+memory without the use of `unsafe` block. However, the API that allows this is
+always very explicit about this behaviour because most of the time the only
+purpose of such APIs is to leak the memory (e.g. the function `Box::leak`).
 
 == Rules of references <ref-rules>
 
@@ -176,23 +176,23 @@ limiting and they are much harder to enforce at compile time. Rust enforces
 them with the use of _lifetimes_. Lifetime is a compile time information that
 is associated with references. In many ways it behaves similarly to a generic
 parameter (as in compile time specialization) but it doesn't specialize the
-items with which it is asociated. It is used only to mark the origin of the
+items with which it is associated. It is used only to mark the origin of the
 memory to which the item refers so that it is possible to verify that the
 program doesn't break any of the rules of references.
 
-In some cases, these rules are too restrictive for some use caseses especially
+In some cases, these rules are too restrictive for some use cases especially
 when using multiple threads. This is why Rust provides _raw pointers_ which
 don't have to follow the rules. In order to make code that circumvents the
 rules more explicit, Rust allows the use of raw pointers only within an
 `unsafe` block. In order to maintain its safety, `unsafe` blocks are only used
-to implement internal details of types or api that is safe to use, even though
-it internally breaks the rules of references to achieve optimal implementation.
-An example is the type `Mutex<T>` which wraps a generic type `T`. `Mutex`
-allows one to obtain a mutable reference to the internal type `T` even if you
-have immutable reference to `Mutex` itself. Internally mutex uses a lock to
-ensure that the immutable access is exclusive and so it doesn't break the rules
-from the outside even if the internal implementation requires to convert
-immutable reference to mutable reference.
+to implement internal details of types or an API that is safe to use, even
+though it internally breaks the rules of references to achieve optimal
+implementation. An example is the type `Mutex<T>` which wraps a generic type
+`T`. `Mutex` allows one to obtain a mutable reference to the internal type `T`
+even if you have an immutable reference to `Mutex` itself. Internally mutex
+uses a lock to ensure that the immutable access is exclusive and so it doesn't
+break the rules from the outside even if the internal implementation requires
+to convert immutable reference to mutable reference.
 
 It is very difficult to properly verify that the program follows the rules at
 compile time without being too restrictive. Rust itself is at this time
@@ -205,13 +205,13 @@ more of unsound code that would previously be accepted.
 
 = Implementation in C++ <cpp-bor>
 
-Everything in this project uses C++ 23, currently the latest approved C++
-standard. As discussed in #ref(<rs-bor>), proving that a program adheres to the
-borrowing rules implies that certain kinds of undefined behaviour cannot happen.
-The rust compiler tries to verify that the rules are fulfilled at compile time.
+Everything in this project uses C++ 23, the latest approved C++ standard. As
+discussed in #ref(<rs-bor>), proving that a program adheres to the borrowing
+rules implies that certain kinds of undefined behaviour cannot happen. The Rust
+compiler attempts to verify that the rules are satisfied at compile time.
 Something like that wouldn't be achievable in C++ without modifying the
 compiler but C++ provides enough features to implement data types that will
-check the borrowing rules at runtime. This project presents header-only C++
+check the borrowing rules at runtime. This project presents a header-only C++
 library called _borlib_ that implements smart pointers which check the
 borrowing rules at runtime.
 
@@ -225,7 +225,7 @@ The main implemented types are:
   elements of type `T` owned by `Val<S>` where `S` is some kind of container
   for that memory region (e.g. `std::vector` or `std::array`).
 - `SliceMut<T>`: smart pointer wrapping mutable continuous memory region with
-  elements of type `T` owned by `Val<S>` simmilarily to `Slice<T>`.
+  elements of type `T` owned by `Val<S>` similarily to `Slice<T>`.
 
 All operations on the implemented types verify that the operation doesn't
 violate any of the borrowing rules and if the operation would violate any of
@@ -236,15 +236,15 @@ The advantage of doing the checks at runtime instead of not doing them is that
 they will catch the issue before it would cause undefined behaviour. There are
 already tools that can detect incorrect memory accesses (such as address
 sanitizers or valgrind) but they will catch the issue only if the memory access
-is truly invalid. If for example some memory gets freed, but there is still a
+is truly invalid. If, for example, some memory gets freed, but there is still a
 pointer pointing to that address and some next allocation gets placed at the
 same address, access through the original pointer will not be regarded as
 invalid. But when checking the borrowing rules, the issue gets caught already
-when the memory is freed while there still exist a pointer to that memory.
+when the memory is freed while there still exists a pointer to that memory.
 Another problem is that the tools are unable to catch data races. When the
 borrowing rules are checked, data races cannot occur, because it is not
-possible to create mutable pointer to a memory while another part of code can
-access that memory, the issue will be caught not when the data race occurs, but
+possible to create a mutable pointer to memory while another part of code can
+access that memory. The issue will be caught not when the data race occurs, but
 already at the time where the possibility of data race is created.
 
 This chapter contains details about the implementation. #ref(<cpp-own>) and
@@ -253,7 +253,7 @@ references respectively can be achieved in C++. #ref(<val>), #ref(<ref>),
 #ref(<ref-mut>), #ref(<slice>) and #ref(<slice-mut>) describe the structure and
 API of the borlib types `Val<T>`, `Ref<T>`, `RefMut<T>`, `Slice<T>` and
 `SliceMut<T>` respectively. #ref(<err-rep>) describes how borlib retrieves
-location of violations of borrowing rules in source code. #ref(<overhead>)
+locations of violations of borrowing rules in source code. #ref(<overhead>)
 describes the overhead of borlib.
 
 == Ownership rules <cpp-own>
@@ -324,7 +324,7 @@ case when splitting mutable slices which is more closely described in
 
 References to single value are represented with two classes `Ref<T>` and
 `RefMut<T>` to differentiate between mutable and immutable reference. They each
-contain a pointer to the data of type `T` and pointer to the structure
+contain a pointer to the data of type `T` and a pointer to the structure
 `Counters`. It might be tempting to store only one pointer to `Val<T>` since it
 contains both the data and counters, but that wouldn't allow representing
 situations where the reference refers only to a portion of the data (e.g.
@@ -334,8 +334,8 @@ described in #ref(<ref>) and `RefMut<T>` is described in #ref(<ref-mut>).
 
 References to multiple values stored continuously in memory are represented by
 classes `Slice<T>` and `SliceMut<T>`. They contain the same fields as `Ref<T>`
-and `RefMut<T>` respectively and additionally have field storing the number of
-items inside the referred memory region. `Slice<T>` is described in
+and `RefMut<T>` respectively and additionally have a field storing the number
+of items inside the referred memory region. `Slice<T>` is described in
 #ref(<slice>) and `Slice<T>` is described in #ref(<slice-mut>).
 
 == `Val<T>` <val>
@@ -362,8 +362,9 @@ It contains the counters and the value itself. It allows arbitrary access to
 the inner value, but it checks the borrowing rules on each access. It also
 allows getting mutable and immutable access to the value through references. If
 the value `T` is some type that owns multiple items in continuous memory,
-`Val<T>` allows retrieving the continuous memory as `Slice` or `SliceMut`. All
-the methods check if the operation violates the borrowing rules.
+`Val<T>` allows retrieving the continuous memory region as `Slice` or
+`SliceMut`. All the methods check if the operation violates the borrowing
+rules.
 
 `Val<T>` can be copied or moved if the type `T` supports it. All these
 operations also check if it violates the borrowing rules.
@@ -487,7 +488,7 @@ public:
 ```
 
 `SliceMut` is to `Slice` what `RefMut` is to `Ref`. It refers to mutable
-continuous slice of memory. Similarily to `RefMut`, the copy constructor and
+continuous slice of memory. Similarly to `RefMut`, the copy constructor and
 operator is deleted. It provides information about its length with the method
 `len` and access to its contents with the method `as_span`. The borrowed range
 of data can be changed with the indexing operators (the `&&` at the end of the
@@ -518,8 +519,8 @@ have a limit on the number of arguments because it makes use of default
 arguments. The limit is a problem for overloaded operators which usually have
 fixed signature (e.g. `operator=`) or destructors. In this case the source
 location cannot be simply obtained at compile time and has to be obtained at
-runtime. This can be achieved with the standard C++ _stacktrace_ api. The
-problem is that stacktrace is not widely supported by implementations of
+runtime. This can be achieved with the standard C++ _stacktrace_ API. The
+problem is that stacktrace is not widely supported by implementations of the
 standard library and so it would be best to make its use optional. To simplify
 this, borlib contains wrapper `SourcePos` which wraps both
 `std::source_location` and stacktrace. When using `SourcePos::current()`, it
@@ -540,7 +541,7 @@ performed operation. This is why borlib adds the option to disable all of the
 checking to remove the overhead. When disabled, the size of the types is the
 same as their standard counterparts and all checks are disabled. The only
 overhead of the references and slices is that when they are moved or destroyed
-they will set the underlying pointer to `nullptr` so that the beahaviour of the
+they will set the underlying pointer to `nullptr` so that the behaviour of the
 public API doesn't change. Whether the checks are enabled is controlled at
 compile time with the macro `BOR_CHECK`. The idea is that code can be written
 with borlib, tested with enabled checks and if performance is critical, the
@@ -655,14 +656,14 @@ main.cpp:5:6: borrow violation: The ranges overlap.
 Borrowing rules are useful because they can prevent several kinds of bugs that
 often occur in programs; when they are followed each memory access is
 guaranteed to be valid and all memory can be freed without requiring the use
-of any garbage collector. In some cases, they can also be limitting but the
+of any garbage collector. In some cases, they can also be limiting but the
 majority of the code will benefit from them.
 
 Properly checking the borrowing rules at compile time can be difficult and even
 Rust is at this time not capable of fully checking the rules. It is impossible
-to bring the compile time borrow checker capabilities to C++ without modifying
+to bring the compile-time borrow-checker capabilities to C++ without modifying
 the compiler, but it is possible to create smart references that check the
-rules at runtime. Checking the rules at runtime is still beneficial, because
+rules at runtime. Checking the rules at runtime is still beneficial because
 they can catch the undefined behaviour much sooner and also catch undefined
 behaviour that could occur undeterministically (such as data races).
 
