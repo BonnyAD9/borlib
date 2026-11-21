@@ -96,7 +96,7 @@ is most commonly associated with heap memory allocation, it can be any other
 kind of resource which the program uses and has to be freed such as file
 descriptors on Unix systems or handles on Windows systems.
 
-Some programming languages (e.g. _C_) don't have any kind of automatic memory
+Some programming languages (e.g., _C_) don't have any kind of automatic memory
 management. The memory management is fully in the hands of the programmer. This
 gives a lot of power into the hands of the programmer and so well written
 programs can be very efficient. The problem is that people are prone to making
@@ -104,7 +104,7 @@ errors and incorrect memory management can lead to vulnerabilities in the
 program. Examples include _use after free_ and _memory leaks_.
 
 Another approach is to automate the memory management with a garbage collector
-(e.g. in _C\#_). In most cases the programmer doesn't have to think about when
+(e.g., in _C\#_). In most cases the programmer doesn't have to think about when
 is the correct time to free an allocated resource. This in most cases avoids
 the related bugs such as memory leaks or use after free, but the resulting
 program is not as efficient because garbage collectors have to periodically
@@ -112,7 +112,7 @@ check the memory used by the program and free any unreachable memory. There are
 many algorithms for garbage collecting but none of them can minimize processor
 time, paused time of the program and memory usage at the same time.
 
-The ownership rules place restrictions on how memory is organized within the
+The ownership rules place restrictions on how memory is organised within the
 program so that it is possible to correctly determine when the memory should be
 freed at compile time without it being specified by the programmer. This has
 the advantage of not being required to manually specify when memory has to be
@@ -124,10 +124,10 @@ The ownership rules are:
 - When the owner goes out of scope, the value will be dropped.
 
 In Rust terminology _dropping_ a value refers to freeing the resources that the
-value owns (e.g. allocated memory). An owner is another value that is
-responsible for the owned value. When the owner is dropped, all of its owned
-values are also dropped. On the top level the owner is the program stack. It is
-not possible to create something as an owner cycle.
+value owns (e.g., allocated memory). An owner is a value that is responsible
+for the owned value. When the owner is dropped, all of its owned values are
+also dropped. On the top level the owner is the program stack. It is not
+possible to create something as an owner cycle.
 
 At first, it may seem that restricting memory organisation within a program
 may result in suboptimal solutions because some memory layouts may not be
@@ -152,7 +152,7 @@ rules are also enforced by allowing the allocation of unowned resources only in
 is not considered an undefined behaviour, so there it is possible to leak
 memory without the use of `unsafe` block. However, the API that allows this is
 always very explicit about this behaviour because most of the time the only
-purpose of such APIs is to leak the memory (e.g. the function `Box::leak`).
+purpose of such APIs is to leak the memory (e.g., the function `Box::leak`).
 
 == Rules of references <ref-rules>
 
@@ -173,8 +173,8 @@ references, use after free and out of bounds access.
 
 In comparison to the ownership rules, rules of references are much more
 limiting and they are much harder to enforce at compile time. Rust enforces
-them with the use of _lifetimes_. Lifetime is a compile time information that
-is associated with references. In many ways it behaves similarly to a generic
+them with the use of _lifetimes_. Lifetime is a compile-time information
+associated with references. In many ways it behaves similarly to a generic
 parameter (as in compile time specialization) but it doesn't specialize the
 items with which it is associated. It is used only to mark the origin of the
 memory to which the item refers so that it is possible to verify that the
@@ -189,7 +189,7 @@ to implement internal details of types or an API that is safe to use, even
 though it internally breaks the rules of references to achieve optimal
 implementation. An example is the type `Mutex<T>` which wraps a generic type
 `T`. `Mutex` allows one to obtain a mutable reference to the internal type `T`
-even if you have an immutable reference to `Mutex` itself. Internally mutex
+even if you have an immutable reference to `Mutex` itself. Internally `Mutex`
 uses a lock to ensure that the immutable access is exclusive and so it doesn't
 break the rules from the outside even if the internal implementation requires
 to convert immutable reference to mutable reference.
@@ -223,7 +223,7 @@ The main implemented types are:
   owned by `Val<T>`.
 - `Slice<T>`: smart pointer wrapping immutable continuous memory region with
   elements of type `T` owned by `Val<S>` where `S` is some kind of container
-  for that memory region (e.g. `std::vector` or `std::array`).
+  for that memory region (e.g., `std::vector` or `std::array`).
 - `SliceMut<T>`: smart pointer wrapping mutable continuous memory region with
   elements of type `T` owned by `Val<S>` similarly to `Slice<T>`.
 
@@ -244,8 +244,8 @@ while there still exists a pointer to that memory. Another problem is that
 these tools are unable to detect data races. When the borrowing rules are
 enforced, data races cannot occur because it is impossible to create a mutable
 pointer to memory while that memory can be accessed elsewhere. Consequently,
-issues will be detected before the data race occurs, namely when the
-possibility of such a data race is created.
+issues are detected before the data race occurs, namely when the possibility of
+such a data race is created.
 
 This chapter contains details about the implementation. #ref(<cpp-own>) and
 #ref(<cpp-ref>) discuss how checking of the borrowing rules and rules of
@@ -262,8 +262,8 @@ C++ already provides tools to partially follow the ownership rules. With the
 help of destructors, one can write any code that will run when a type goes out
 of scope similarly to the `Drop` trait in Rust. But C++ in no way enforces that
 each value has exactly one owner. The main problem is with pointers. Pointers
-can refer to either an owned value on stack (e.g. pointer in the `std::vector`
-implementation) or to a borrowed value (e.g. when they are used as iterators)
+can refer to either an owned value on stack (e.g., pointer in the `std::vector`
+implementation) or to a borrowed value (e.g., when they are used as iterators)
 and sometimes it is not clear which part of the code should be responsible for
 freeing the pointer. This can lead to various issues such as use after free and
 double free. C++ provides references which are clearly not owning and they can
@@ -327,7 +327,7 @@ References to single value are represented with two classes `Ref<T>` and
 contain a pointer to the data of type `T` and a pointer to the structure
 `Counters`. It might be tempting to store only one pointer to `Val<T>` since it
 contains both the data and counters, but that wouldn't allow representing
-situations where the reference refers only to a portion of the data (e.g.
+situations where the reference refers only to a portion of the data (e.g.,
 single item from vector). `RefMut<T>` additionally contains a flag `_borrowed`
 that is used in reborrowing which will be discussed later. `Ref<T>` is
 described in #ref(<ref>) and `RefMut<T>` is described in #ref(<ref-mut>).
@@ -517,7 +517,7 @@ borlib. The simplest way of getting this information is with the use of
 time. The limitation of this approach is that it relies on an additional
 default argument and therefore can only be used with methods whose signatures
 permit them. Namely, the limitation is a problem for overloaded operators which
-usually have fixed signature (e.g. `operator=`) or destructors. In this case
+usually have fixed signature (e.g., `operator=`) or destructors. In this case
 the source location cannot be simply obtained at compile time and has to be
 obtained at runtime. This can be achieved with the standard C++ _stacktrace_
 API. The problem is that stacktrace is not yet widely supported by
