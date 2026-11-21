@@ -17,3 +17,6 @@ Smart references for checking Rust borrowing rules in C++.
     - `BOR_STACKTRACE`: Whether stacktrace is enabled or not. Enabling this
       will sometimes produce better source code locations, but it may not be
       supported by some implementations of the standard library.
+
+## AI use
+AI was used only to correct gramatical errors in the documentation.
