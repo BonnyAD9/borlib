@@ -171,10 +171,24 @@ static void test_split() {
     auto [s1, s2] = vec.slice_mut().split({ 0, 2 }, { 1, 3 });
 }
 
+static void test_race2() {
+    Val<int> v = 5;
+    auto r1 = v.ref_mut();
+    auto r2 = v.ref_mut();
+
+    const auto foo = [](auto mr, int v) { *mr = v; };
+    std::thread t1{ foo, std::move(r1), 7 };
+    std::thread t2{ foo, std::move(r2), 9 };
+
+    t1.join();
+    t2.join();
+}
+
 static void test_panic() {
     // Only the first test is always tested, because the code panics and other
     // tests won't run.
 
+    test_race2();
     test_split();
     test_borrow_escape();
     test_race();
