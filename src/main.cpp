@@ -46,7 +46,7 @@ static void start() {
 static void tryout() {
     test_no_panic();
     // NOLINTNEXTLINE(readability-simplify-boolean-expr)
-    if (true) {
+    if (false) { // Change to true to test code that should panic.
         test_panic();
     }
 }

@@ -1,5 +1,5 @@
 TARGET=borlib
-BUILD_TYPE?=Release
+BUILD_TYPE?=Debug
 PARALLEL?=-j $(shell nproc)
 SOURCES=$(shell find src/ -name '*.cpp')
 HEADERS=$(shell find src/ -name '*.hpp')

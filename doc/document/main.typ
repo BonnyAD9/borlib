@@ -205,7 +205,8 @@ code that would previously have been accepted.
 
 = Implementation in C++ <cpp-bor>
 
-Everything in this project uses C++ 23, the latest approved C++ standard. As
+Everything in this project uses C++ 23, the latest approved C++ standard. The
+source code is available at #link("https://github.com/BonnyAD9/borlib"). As
 discussed in #ref(<rs-bor>), proving that a program adheres to the borrowing
 rules implies that certain kinds of undefined behaviour cannot happen. The Rust
 compiler attempts to verify that the rules are satisfied at compile time.

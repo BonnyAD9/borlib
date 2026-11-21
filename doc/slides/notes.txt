@@ -1,0 +1,69 @@
+Dobrý den, moje jméno je Jakub Antonín Štigler a tohle je prezentace o mém
+projektu na téma
+Chytré reference pro ověřování Rustovských půjčovacích pravidel v C++.
+
+Nejdříve je nutné zmínit co jsou v Rustu půjčovací pravidla. Dají se
+rozdělit na proavidla o vlastnictví, které říkají že každá hodnota má právě
+jednoho vlastníka, který je zodpovědný za její uvolnění. Pokud by měl být
+vlastník uvolněn, tak i všechny hodnoty které vlastní jsou uvolněny. Tyto
+pravidla zaručují že je vždy zřejmé kdy se má paměť uvolnit aniž by to
+programátor musel explicitně psát a není tedy potřeba žádný garbage
+kolektor.
+Další skupinou jsou pravidla o referencích. První z nich říká, že na jednu
+hodnotu vždy ukazuje jen jedna mutable reference, nebo libovoný počet
+immutable referencí. Toto zamezuje vzniknutí data race, protože se nikdy
+nemůže stát že k paměti má někdo přístup ve chvíli kdy do ní někdo zapisuje.
+Druhé říká že reference jsou vždy validní. Každý přístup do paměti pak tedy
+také musí být validní.
+Pokud můžeme dokázat že program dodržuje tyto pravidla, můžeme i dokázat že
+některé typy chyb se v programu nevyskytují jako například use after free
+nebo data race.
+Pravidla o vlastnictví nejsou tak složitá a i C++ obsahuje prostředky pro
+jejich realizaci pomocí destruktorů. Obtížné je tedy ověřovat zejména
+pravidla o referencích.
+
+Rust řeší ověřování těchto pravidel při kompilaci. Pro ověření využívá
+takzvané lifetimy, které pro reference udržují informaci odkud pochází.
+Toto ověřování může být velmi složité a samotný Rust v tuhle chvíli není
+schopen toto korektně ověřit ve všech případech a je tedy unsound. V
+prezentaci je ukázka Rust kódu, který se zkompiluje ikdyž obsahuje use after
+free bez použití jakéhokoli unsafe kódu.
+
+V rámci tohoto projektu jsem implementoval knihovnu borlib pro C++, která
+poskytuje chytré poitery pro ověřování půjčovacích pravidel za běhu
+programu. Ověřování za běhu je stále výhodné, protože porušení pravidel se
+dá detekovat dříve než nedefinované chování. Zde je ukázán příklad za
+použití borlibu. Dvě vlákna se snaží zapsat do stejného místa v paměti
+různou hodnotu což vede na data race. Borlib ale chybu ohlásí už při
+provádění řádku 7, tedy ještě dříve než jsou vlákna vůbec spuštěna. To
+protože na řídku 7 se vytváří druhá mutable reference a to porušuje
+půjčovací pravidla.
+Toto ověřování je realizováno atomickými čítači, které obsahuje každá
+instance `Val<T>`.
+
+Zde mám další ukázku. Tentokrát se jedná o detekci use after free hodnoty
+`n` deklarované ve vnitřním bloku. Reference na hodnotu je uložena do
+proměnné, která ale tento blok přežije a tudíž by se po dokončení bloku
+jednalo o porušení půjčovacích pravidel. Borlib detekuje chybu na řádku `7`
+kde se implicitně volá destruktor hodnoty `n`.
+
+V téhle další ukázce je využito featury které se říká reborrowing. Jedná se
+o znovuzapůjčení mutable reference. Po dobu toho zapůjčení není možné
+původní referenci používat. Znovuzapůjčení je potřeba například v případě
+kdy funkce bere jako argument referenci. Ten kdo funkci volá může tedy
+propůjčit svoji mutable referenci pro běh dané funkce a poté co funkce
+doběhne, tak zase může využívat svoji původní mutable referenci.
+Zde v ukázce jde o porušení, protože funkce, které byla reference zapůjčena,
+ji uloží do proměnné `ref`, která přežije samotné znovupůjčení. Poté co funkce
+doběhne by tak existovala jak mutable reference `mref`, tak i reference `ref`
+což by porušilo půjčovací pravidla. Chyba se projeví při dokončování metody
+`borrow`.
+
+V této poslední ukázce je využit slice. Slice je reference na blok paměti
+obsahující více elementů, které v tomhle případě pochází z vektoru. Mutable
+slice je možné rozdělit na více mutable slice pokud každý obsahuje jinou
+část paměti. V první případě je tohle splněno a kód proběhne. V duhém se
+rozsahy překrývají a borlib tedy zahlásí chybu protože by dvě mutable
+reference ukazovali na stejné místo v paměti.
+
+A to je vše, děkuji za pozornost.
