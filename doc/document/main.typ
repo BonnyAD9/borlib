@@ -124,25 +124,25 @@ The ownership rules are:
 - When the owner goes out of scope, the value will be dropped.
 
 In Rust terminology _dropping_ a value refers to freeing the resources that the
-value owns (e.g. allocated memory). Owner is another value that is responsible
-for the owned value. When owner is dropped, all of its owned values are also
-dropped. On the top level the owner is the program stack. It is not possible to
-create something as an owner cycle.
+value owns (e.g. allocated memory). An owner is another value that is
+responsible for the owned value. When owner is dropped, all of its owned values
+are also dropped. On the top level the owner is the program stack. It is not
+possible to create something as an owner cycle.
 
-At first it may seem that restricting memory organisation within the program
-may result in suboptimal programs because the optimal solution to the problem
-may not be representable within the restrictions. In reality the rules restrict
-the memory organisation to organisation that is actually commonly used when
-memory is managed manually. For cases where the rules are too restrictive, Rust
-has the option of writing code within `unsafe` blocks which allow breaking the
-rules within the scope of the `unsafe` block. This allows for implementing
-correct data types that internally don't align with the ownership rules. The
-types themselves don't require the usage of the `unsafe` block, because they
-are correct from the outside. It may seem that `unsafe` blocks break the safety
-guarantees but in most cases they are not required and when they are used it is
-clear which code should be analyzed more carefully. One example of type that
-circumvents the rules is `Arc` which allows shared ownership and is implemented
-with reference counting.
+At first it may seem that restricting memory organisation within a program
+may result in suboptimal solutions because some memory layouts may not be
+expressible under these restrictions. In reality the rules restrict the memory
+organisation to organisation that is actually commonly used when memory is
+managed manually. For cases where the rules are too restrictive, Rust has the
+option of writing code within `unsafe` blocks which allow breaking the rules
+within the scope of the `unsafe` block. This allows for implementing correct
+data types that internally don't align with the ownership rules. The types
+themselves don't require the usage of the `unsafe` block, because they are
+correct from the outside. At first glance, unsafe blocks may appear to
+undermine Rust's safety guarantees. In practice, however, they are rarely
+required, and their use cleary identifies code that deserves additional
+attention. One example of type that circumvents the rules is `Arc` which allows
+shared ownership and is implemented with reference counting.
 
 Rust allows compliance with the ownership rules by providing the `Drop` trait
 which has a similar job to that of destructors in other languages: it allows
@@ -225,27 +225,27 @@ The main implemented types are:
   elements of type `T` owned by `Val<S>` where `S` is some kind of container
   for that memory region (e.g. `std::vector` or `std::array`).
 - `SliceMut<T>`: smart pointer wrapping mutable continuous memory region with
-  elements of type `T` owned by `Val<S>` similarily to `Slice<T>`.
+  elements of type `T` owned by `Val<S>` similarly to `Slice<T>`.
 
 All operations on the implemented types verify that the operation doesn't
 violate any of the borrowing rules and if the operation would violate any of
 the rules the function `panic` is called which will print an error message and
 the source location where the operation was invoked and terminate the process.
 
-The advantage of doing the checks at runtime instead of not doing them is that
-they will catch the issue before it would cause undefined behaviour. There are
-already tools that can detect incorrect memory accesses (such as address
-sanitizers or valgrind) but they will catch the issue only if the memory access
-is truly invalid. If, for example, some memory gets freed, but there is still a
-pointer pointing to that address and some next allocation gets placed at the
-same address, access through the original pointer will not be regarded as
-invalid. But when checking the borrowing rules, the issue gets caught already
-when the memory is freed while there still exists a pointer to that memory.
-Another problem is that the tools are unable to catch data races. When the
-borrowing rules are checked, data races cannot occur, because it is not
-possible to create a mutable pointer to memory while another part of code can
-access that memory. The issue will be caught not when the data race occurs, but
-already at the time where the possibility of data race is created.
+The advantage of performing runtime checks is that violations are detected
+before they could cause undefined behaviour. There are already tools that can
+detect incorrect memory accesses (such as address sanitizers or valgrind) but
+they will catch the issue only if the memory access is truly invalid. If, for
+example, some memory gets freed, but there is still a pointer pointing to that
+address and some next allocation gets placed at the same address, access
+through the original pointer will not be regarded as invalid. But when checking
+the borrowing rules, the issue gets caught already when the memory is freed
+while there still exists a pointer to that memory. Another problem is that
+these tools are unable to detect data races. When the borrowing rules are
+enforced, data races cannot occur because it is impossible to create a mutable
+pointer to memory while that memory can be accessed elswhere. Consequently,
+issues will be detected before the data race occurs, namely when the
+possibility of such a data race is created.
 
 This chapter contains details about the implementation. #ref(<cpp-own>) and
 #ref(<cpp-ref>) discuss how checking of the borrowing rules and rules of
@@ -336,7 +336,7 @@ References to multiple values stored continuously in memory are represented by
 classes `Slice<T>` and `SliceMut<T>`. They contain the same fields as `Ref<T>`
 and `RefMut<T>` respectively and additionally have a field storing the number
 of items inside the referred memory region. `Slice<T>` is described in
-#ref(<slice>) and `Slice<T>` is described in #ref(<slice-mut>).
+#ref(<slice>) and `SliceMut<T>` is described in #ref(<slice-mut>).
 
 == `Val<T>` <val>
 
@@ -419,14 +419,14 @@ original reference cannot be used. The flag is used to indicate that the
 reference is borrowed and cannot be used. This is necessary when calling a
 function that takes the mutable reference as an argument.
 
-Some operations and checks are required both at the start of the reborrowing
-and at the end. This is why this operation is realized with the higher order
-methods `borrow` and `borrow_mut` where the type `F` represents a function
-which will take the reborrowed reference as an argument. Reborrowing is
-implemented by creating a new instance of `Counters` which is associated with
-the borrowed reference. After the method finishes, the number of references in
-the created counters must be 0. If not, the borrowed reference escaped its
-scope and this will lead to violation of the borrowing rules.
+Reborrowing requires checks both when it begins and when it ends. For this
+reason, it is implemented through the higher order methods `borrow` and
+`borrow_mut` where the type `F` represents a function which will take the
+reborrowed reference as an argument. Reborrowing is implemented by creating a
+new instance of `Counters` which is associated with the borrowed reference.
+After the method finishes, the number of references in the created counters
+must be 0. If not, the borrowed reference escaped its scope and this will lead
+to violation of the borrowing rules.
 
 == `Slice<T>` <slice>
 
@@ -514,15 +514,15 @@ source code location where the violation occurred. The helpful source location
 of the violation is always location of the caller of any of the methods in
 borlib. The simplest way of getting this information is with the use of
 `std::source_location` which can get location of the caller at compile time.
-The issue is that this approach can be used only when using methods which don't
-have a limit on the number of arguments because it makes use of default
-arguments. The limit is a problem for overloaded operators which usually have
-fixed signature (e.g. `operator=`) or destructors. In this case the source
-location cannot be simply obtained at compile time and has to be obtained at
-runtime. This can be achieved with the standard C++ _stacktrace_ API. The
-problem is that stacktrace is not widely supported by implementations of the
-standard library and so it would be best to make its use optional. To simplify
-this, borlib contains wrapper `SourcePos` which wraps both
+The limitation of this approach is that it relies on additional default
+argument and therefore can only be used with methods whose signatures permit
+them. Namely, the limitation is a problem for overloaded operators which
+usually have fixed signature (e.g. `operator=`) or destructors. In this case
+the source location cannot be simply obtained at compile time and has to be
+obtained at runtime. This can be achieved with the standard C++ _stacktrace_
+API. The problem is that stacktrace is not widely supported by implementations
+of the standard library and so it would be best to make its use optional. To
+simplify this, borlib contains wrapper `SourcePos` which wraps both
 `std::source_location` and stacktrace. When using `SourcePos::current()`, it
 behaves exactly as `std::source_location`. When using `SourcePos::caller()` it
 will track the relative position of the caller's stack frame so it can be later
@@ -653,11 +653,11 @@ main.cpp:5:6: borrow violation: The ranges overlap.
 
 = Conclusion
 
-Borrowing rules are useful because they can prevent several kinds of bugs that
-often occur in programs; when they are followed each memory access is
-guaranteed to be valid and all memory can be freed without requiring the use
-of any garbage collector. In some cases, they can also be limiting but the
-majority of the code will benefit from them.
+Borrowing rules are useful because they prevent several classes of common bugs.
+When they are followed each memory access is guaranteed to be valid and all
+memory can be safely freed without requiring a garbage collector. In some
+cases, they can also be limiting but the majority of the code will benefit from
+them.
 
 Properly checking the borrowing rules at compile time can be difficult and even
 Rust is at this time not capable of fully checking the rules. It is impossible
