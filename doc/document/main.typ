@@ -125,24 +125,24 @@ The ownership rules are:
 
 In Rust terminology _dropping_ a value refers to freeing the resources that the
 value owns (e.g. allocated memory). An owner is another value that is
-responsible for the owned value. When owner is dropped, all of its owned values
-are also dropped. On the top level the owner is the program stack. It is not
-possible to create something as an owner cycle.
+responsible for the owned value. When the owner is dropped, all of its owned
+values are also dropped. On the top level the owner is the program stack. It is
+not possible to create something as an owner cycle.
 
-At first it may seem that restricting memory organisation within a program
+At first, it may seem that restricting memory organisation within a program
 may result in suboptimal solutions because some memory layouts may not be
 expressible under these restrictions. In reality the rules restrict the memory
-organisation to organisation that is actually commonly used when memory is
-managed manually. For cases where the rules are too restrictive, Rust has the
-option of writing code within `unsafe` blocks which allow breaking the rules
-within the scope of the `unsafe` block. This allows for implementing correct
-data types that internally don't align with the ownership rules. The types
-themselves don't require the usage of the `unsafe` block, because they are
-correct from the outside. At first glance, unsafe blocks may appear to
-undermine Rust's safety guarantees. In practice, however, they are rarely
-required, and their use cleary identifies code that deserves additional
-attention. One example of type that circumvents the rules is `Arc` which allows
-shared ownership and is implemented with reference counting.
+organisation to forms that are commonly used when memory is managed manually.
+For cases where the rules are too restrictive, Rust has the option of writing
+code within `unsafe` blocks which allow breaking the rules within the scope of
+the `unsafe` block. This allows for implementing correct data types that
+internally don't align with the ownership rules. The types themselves don't
+require the usage of the `unsafe` block, because they are correct from the
+outside. At first glance, unsafe blocks may appear to undermine Rust's safety
+guarantees. In practice, however, they are rarely required, and their use
+clearly identifies code that deserves additional attention. One example of a
+type that circumvents the rules is `Arc` which allows shared ownership and is
+implemented with reference counting.
 
 Rust allows compliance with the ownership rules by providing the `Drop` trait
 which has a similar job to that of destructors in other languages: it allows
@@ -199,9 +199,9 @@ compile time without being too restrictive. Rust itself is at this time
 considered _unsound_ because the compiler can be tricked to accept programs
 that break the rules. The situations where this happens are most of the time
 very unusual and it is unlikely that someone would accidentally write code that
-would break the rules without the compiler noticing. It is also continually
-being worked on and with time the compiler is capable of rejecting more and
-more of unsound code that would previously be accepted.
+would break the rules without the compiler noticing. The Rust compiler is
+continually being improved and is capable of rejecting more and more of unsound
+code that would previously have been accepted.
 
 = Implementation in C++ <cpp-bor>
 
@@ -243,7 +243,7 @@ the borrowing rules, the issue gets caught already when the memory is freed
 while there still exists a pointer to that memory. Another problem is that
 these tools are unable to detect data races. When the borrowing rules are
 enforced, data races cannot occur because it is impossible to create a mutable
-pointer to memory while that memory can be accessed elswhere. Consequently,
+pointer to memory while that memory can be accessed elsewhere. Consequently,
 issues will be detected before the data race occurs, namely when the
 possibility of such a data race is created.
 
@@ -511,22 +511,22 @@ in the counters differ from 1 even when `_mut` is `true`.
 
 When the borrowing rules are violated, the program is terminated and prints the
 source code location where the violation occurred. The helpful source location
-of the violation is always location of the caller of any of the methods in
+of the violation is always the location of the caller of any of the methods in
 borlib. The simplest way of getting this information is with the use of
-`std::source_location` which can get location of the caller at compile time.
-The limitation of this approach is that it relies on additional default
-argument and therefore can only be used with methods whose signatures permit
-them. Namely, the limitation is a problem for overloaded operators which
+`std::source_location` which can get the location of the caller at compile
+time. The limitation of this approach is that it relies on an additional
+default argument and therefore can only be used with methods whose signatures
+permit them. Namely, the limitation is a problem for overloaded operators which
 usually have fixed signature (e.g. `operator=`) or destructors. In this case
 the source location cannot be simply obtained at compile time and has to be
 obtained at runtime. This can be achieved with the standard C++ _stacktrace_
-API. The problem is that stacktrace is not widely supported by implementations
-of the standard library and so it would be best to make its use optional. To
-simplify this, borlib contains wrapper `SourcePos` which wraps both
-`std::source_location` and stacktrace. When using `SourcePos::current()`, it
-behaves exactly as `std::source_location`. When using `SourcePos::caller()` it
-will track the relative position of the caller's stack frame so it can be later
-used to retrieve the proper source location. If stacktrace is disabled,
+API. The problem is that stacktrace is not yet widely supported by
+implementations of the standard library and so it would be best to make its use
+optional. To simplify this, borlib contains wrapper `SourcePos` which wraps
+both `std::source_location` and stacktrace. When using `SourcePos::current()`,
+it behaves exactly as `std::source_location`. When using `SourcePos::caller()`
+it will track the relative position of the caller's stack frame so it can be
+later used to retrieve the proper source location. If stacktrace is disabled,
 `SourcePos::caller()` will fall back to using `std::source_location`.
 Whether stacktrace is enabled is controlled at compile time with the macro
 `BOR_STACKTRACE`.
@@ -654,7 +654,7 @@ main.cpp:5:6: borrow violation: The ranges overlap.
 = Conclusion
 
 Borrowing rules are useful because they prevent several classes of common bugs.
-When they are followed each memory access is guaranteed to be valid and all
+When they are followed, each memory access is guaranteed to be valid and all
 memory can be safely freed without requiring a garbage collector. In some
 cases, they can also be limiting but the majority of the code will benefit from
 them.
