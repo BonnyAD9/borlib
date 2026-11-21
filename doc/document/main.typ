@@ -149,10 +149,10 @@ which has a similar job to that of destructors in other languages: it allows
 specifying code that should run when a value of a given type is dropped. The
 rules are also enforced by allowing the allocation of unowned resources only in
 `unsafe` blocks. Even though Rust has the ownership rules, leaking a resource
-is not considered an undefined behaviour, so there it is possible to leak
-memory without the use of `unsafe` block. However, the API that allows this is
-always very explicit about this behaviour because most of the time the only
-purpose of such APIs is to leak the memory (e.g., the function `Box::leak`).
+is not considered an undefined behaviour, so it is possible to leak memory
+without the use of `unsafe` block. However, the APIs that allow this are always
+very explicit about this behaviour because most of the time the only purpose of
+such APIs is to leak the memory (e.g., the function `Box::leak`).
 
 == Rules of references <ref-rules>
 
@@ -262,7 +262,7 @@ C++ already provides tools to partially follow the ownership rules. With the
 help of destructors, one can write any code that will run when a type goes out
 of scope similarly to the `Drop` trait in Rust. But C++ in no way enforces that
 each value has exactly one owner. The main problem is with pointers. Pointers
-can refer to either an owned value on stack (e.g., pointer in the `std::vector`
+can refer to either an owned value on heap (e.g., pointer in the `std::vector`
 implementation) or to a borrowed value (e.g., when they are used as iterators)
 and sometimes it is not clear which part of the code should be responsible for
 freeing the pointer. This can lead to various issues such as use after free and
@@ -290,8 +290,8 @@ additional advantages regarding the compliance with ownership rules.
 
 In this section the term _reference_ will refer to the smart pointers in
 borlib. Terms _mutable reference_ and _immutable reference_ will mean that the
-data that the reference points to is mutable or immutable data and not the
-pointer itself is mutable or immutable.
+data that the reference points to is mutable or immutable and not the pointer
+itself.
 
 The rules of references are verified through the class `Counters` which is
 created for each instance of `Val<T>`. The class contains two atomic variables:
@@ -313,7 +313,7 @@ is no mutable reference and the operation will increment the field `_ref`.
 Creating a mutable reference is valid only if there are no other references and
 the operation will also set the field `_mut` to `true` while incrementing
 `_ref`. Operations `add_ref` and `remove_ref` only increase or decrease the
-reference counter. When removing the last reference, `_mut` is also set to
+reference counter and when removing the last reference, `_mut` is also set to
 `false`. The operation `transfer_mut_to_ref` is used when mutable reference is
 converted to immutable reference. It will set the variable `_mut` to `false` if
 this is the only reference.
