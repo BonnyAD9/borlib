@@ -5,10 +5,7 @@ Smart references for checking Rust borrowing rules in C++.
 ## Contents of the archive
 - `doc/document/xstigl00-borlib-documentation.pdf`: The project documentation.
 - `doc/slides/xstigl00-borlib-presentation.pdf`: Slides for the project.
-<!-- - `doc/slides/presentation.mp4`: Video of the presentation. -->
-- Video of the presentation is available at
-  [github](https://github.com/BonnyAD9/borlib/raw/refs/heads/master/doc/slides/presentation.mp4)
-  because it didn't fit into the 5 MB submission limit.
+- `doc/slides/presentation.mp4`: Video of the presentation.
 - `src`: The source code.
     - The library is in all of the hpp files.
     - `main.cpp` contains tests and examples.
